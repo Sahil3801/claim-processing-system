@@ -68,6 +68,18 @@ class ClaimStatusEventConsumerTest {
         verify(processedEventRepository).saveAndFlush(any(ProcessedKafkaEvent.class));
     }
 
+    @Test
+    void recordsEventWithoutNotificationWhenNoRecipientExists() {
+        ClaimStatusEvent event = new ClaimStatusEvent(
+                "event-64", 64L, ClaimStatus.UNDER_REVIEW, ClaimStatus.APPROVED,
+                7L, " ", "officer", Instant.parse("2026-08-30T10:00:00Z"));
+
+        consumer().consume(event);
+
+        verify(processedEventRepository).saveAndFlush(any(ProcessedKafkaEvent.class));
+        verify(emailService, never()).sendEmail(any(), any(), any());
+    }
+
     private ClaimStatusEventConsumer consumer() {
         return new ClaimStatusEventConsumer(processedEventRepository, emailService);
     }

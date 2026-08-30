@@ -80,6 +80,17 @@ class ClaimStatusEventPublisherTest {
         assertDoesNotThrow(() -> publisher.publishAfterCommit(event));
     }
 
+    @Test
+    void asynchronousDeliveryFailureCannotEscapeToClaimOperation() {
+        ClaimStatusEvent event = event("event-4", 54L);
+        when(kafkaTemplate.send("claims.status.v1", "54", event))
+                .thenReturn(CompletableFuture.failedFuture(
+                        new KafkaException("delivery retries exhausted")));
+
+        assertDoesNotThrow(() -> publisher.publishAfterCommit(event));
+        verify(kafkaTemplate).send("claims.status.v1", "54", event);
+    }
+
     private void beginTransactionSynchronization() {
         TransactionSynchronizationManager.initSynchronization();
         TransactionSynchronizationManager.setActualTransactionActive(true);

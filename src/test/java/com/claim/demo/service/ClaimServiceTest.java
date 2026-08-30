@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -144,6 +145,16 @@ class ClaimServiceTest {
         verify(claimRepository, never()).save(any(Claim.class));
         verify(claimStatusHistoryRepository, never()).save(any(ClaimStatusHistory.class));
         verify(claimStatusEventPublisher, never()).publishAfterCommit(any(ClaimStatusEvent.class));
+    }
+
+    @Test
+    void requiresAnAuditableActorForEveryTransition() {
+        assertThrows(IllegalArgumentException.class,
+                () -> claimService.transitionClaimStatus(3L, ClaimStatus.SUBMITTED, " ", null));
+
+        verify(claimRepository, never()).findById(anyLong());
+        verify(claimRepository, never()).save(any(Claim.class));
+        verify(claimStatusHistoryRepository, never()).save(any(ClaimStatusHistory.class));
     }
 
     @Test

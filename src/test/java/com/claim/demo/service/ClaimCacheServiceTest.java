@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -114,6 +115,19 @@ class ClaimCacheServiceTest {
         claimCacheService.evictClaimAfterCommit(46L);
 
         verify(redisTemplate).delete(List.of("claims:detail:46", "claims:status:46"));
+    }
+
+    @Test
+    void ignoresRedisFailuresDuringStatusPopulationAndEviction() {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        doThrow(new RedisConnectionFailureException("Redis unavailable"))
+                .when(valueOperations).set(
+                        "claims:status:47", "SETTLED", Duration.ofMinutes(5));
+        doThrow(new RedisConnectionFailureException("Redis unavailable"))
+                .when(redisTemplate).delete(List.of("claims:detail:47", "claims:status:47"));
+
+        assertDoesNotThrow(() -> claimCacheService.putStatus(47L, "SETTLED"));
+        assertDoesNotThrow(() -> claimCacheService.evictClaimAfterCommit(47L));
     }
 
     private void beginTransactionSynchronization() {
