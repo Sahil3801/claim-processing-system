@@ -33,7 +33,7 @@ if ! [[ "$run_id" =~ ^[A-Za-z0-9._-]+$ ]]; then
   echo "BENCHMARK_RUN_ID may contain only letters, numbers, dots, underscores, and dashes." >&2
   exit 1
 fi
-if ! [[ "$claim_count" =~ ^[1-9][0-9]*$ && "$claimant_count" =~ ^[2-9][0-9]*$ && "$vus" =~ ^[1-9][0-9]*$ && "$repetitions" =~ ^[1-9][0-9]*$ ]]; then
+if ! [[ "$claim_count" =~ ^[1-9][0-9]*$ && "$claimant_count" =~ ^[1-9][0-9]*$ && "$vus" =~ ^[1-9][0-9]*$ && "$repetitions" =~ ^[1-9][0-9]*$ ]]; then
   echo "CLAIM_COUNT, CLAIMANT_COUNT, BENCHMARK_VUS, and BENCHMARK_REPETITIONS are invalid." >&2
   exit 1
 fi
