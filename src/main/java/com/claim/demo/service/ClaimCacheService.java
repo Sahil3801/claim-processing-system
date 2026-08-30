@@ -27,17 +27,23 @@ public class ClaimCacheService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final Duration detailTtl;
     private final Duration statusTtl;
+    private final boolean enabled;
 
     public ClaimCacheService(
             RedisTemplate<String, Object> redisTemplate,
             @Value("${claims.cache.detail-ttl:PT10M}") Duration detailTtl,
-            @Value("${claims.cache.status-ttl:PT5M}") Duration statusTtl) {
+            @Value("${claims.cache.status-ttl:PT5M}") Duration statusTtl,
+            @Value("${claims.cache.enabled:true}") boolean enabled) {
         this.redisTemplate = redisTemplate;
         this.detailTtl = detailTtl;
         this.statusTtl = statusTtl;
+        this.enabled = enabled;
     }
 
     public Optional<ClaimDTO> getClaim(Long claimId) {
+        if (!enabled) {
+            return Optional.empty();
+        }
         try {
             Object value = redisTemplate.opsForValue().get(detailKey(claimId));
             return value instanceof ClaimDTO claim ? Optional.of(claim) : Optional.empty();
@@ -49,6 +55,9 @@ public class ClaimCacheService {
     }
 
     public void putClaim(ClaimDTO claim) {
+        if (!enabled) {
+            return;
+        }
         try {
             redisTemplate.opsForValue().set(detailKey(claim.getClaimId()), claim, detailTtl);
         } catch (RuntimeException exception) {
@@ -58,6 +67,9 @@ public class ClaimCacheService {
     }
 
     public Optional<String> getStatus(Long claimId) {
+        if (!enabled) {
+            return Optional.empty();
+        }
         try {
             Object value = redisTemplate.opsForValue().get(statusKey(claimId));
             return value instanceof String status ? Optional.of(status) : Optional.empty();
@@ -69,6 +81,9 @@ public class ClaimCacheService {
     }
 
     public void putStatus(Long claimId, String status) {
+        if (!enabled) {
+            return;
+        }
         try {
             redisTemplate.opsForValue().set(statusKey(claimId), status, statusTtl);
         } catch (RuntimeException exception) {
@@ -78,6 +93,9 @@ public class ClaimCacheService {
     }
 
     public void evictClaimAfterCommit(Long claimId) {
+        if (!enabled) {
+            return;
+        }
         if (TransactionSynchronizationManager.isSynchronizationActive()
                 && TransactionSynchronizationManager.isActualTransactionActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
@@ -92,6 +110,9 @@ public class ClaimCacheService {
     }
 
     void evictClaim(Long claimId) {
+        if (!enabled) {
+            return;
+        }
         try {
             redisTemplate.delete(List.of(detailKey(claimId), statusKey(claimId)));
         } catch (RuntimeException exception) {

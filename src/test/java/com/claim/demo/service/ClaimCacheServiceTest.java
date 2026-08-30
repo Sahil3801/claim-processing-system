@@ -42,7 +42,7 @@ class ClaimCacheServiceTest {
     @BeforeEach
     void setUp() {
         claimCacheService = new ClaimCacheService(
-                redisTemplate, Duration.ofMinutes(10), Duration.ofMinutes(5));
+                redisTemplate, Duration.ofMinutes(10), Duration.ofMinutes(5), true);
     }
 
     @AfterEach
@@ -128,6 +128,21 @@ class ClaimCacheServiceTest {
 
         assertDoesNotThrow(() -> claimCacheService.putStatus(47L, "SETTLED"));
         assertDoesNotThrow(() -> claimCacheService.evictClaimAfterCommit(47L));
+    }
+
+    @Test
+    void bypassesRedisWhenCacheIsDisabled() {
+        ClaimCacheService disabledCache = new ClaimCacheService(
+                redisTemplate, Duration.ofMinutes(10), Duration.ofMinutes(5), false);
+
+        assertTrue(disabledCache.getClaim(48L).isEmpty());
+        assertTrue(disabledCache.getStatus(48L).isEmpty());
+        disabledCache.putClaim(claim(48L));
+        disabledCache.putStatus(48L, "APPROVED");
+        disabledCache.evictClaimAfterCommit(48L);
+
+        verify(redisTemplate, never()).opsForValue();
+        verify(redisTemplate, never()).delete(List.of("claims:detail:48", "claims:status:48"));
     }
 
     private void beginTransactionSynchronization() {
