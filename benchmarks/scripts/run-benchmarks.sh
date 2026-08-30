@@ -11,7 +11,8 @@ container_result_dir="/results/${run_id}"
 claim_count="${CLAIM_COUNT:-100000}"
 claimant_count="${CLAIMANT_COUNT:-1000}"
 anchor_timestamp="${ANCHOR_TIMESTAMP:-2026-01-01 00:00:00}"
-vus="${BENCHMARK_VUS:-20}"
+cache_vus="${CACHE_BENCHMARK_VUS:-${BENCHMARK_VUS:-2}}"
+mix_vus="${MIX_BENCHMARK_VUS:-${BENCHMARK_VUS:-10}}"
 read_duration="${READ_DURATION:-60s}"
 mix_duration="${MIX_DURATION:-60s}"
 warmup_duration="${WARMUP_DURATION:-15s}"
@@ -33,8 +34,8 @@ if ! [[ "$run_id" =~ ^[A-Za-z0-9._-]+$ ]]; then
   echo "BENCHMARK_RUN_ID may contain only letters, numbers, dots, underscores, and dashes." >&2
   exit 1
 fi
-if ! [[ "$claim_count" =~ ^[1-9][0-9]*$ && "$claimant_count" =~ ^[1-9][0-9]*$ && "$vus" =~ ^[1-9][0-9]*$ && "$repetitions" =~ ^[1-9][0-9]*$ ]]; then
-  echo "CLAIM_COUNT, CLAIMANT_COUNT, BENCHMARK_VUS, and BENCHMARK_REPETITIONS are invalid." >&2
+if ! [[ "$claim_count" =~ ^[1-9][0-9]*$ && "$claimant_count" =~ ^[1-9][0-9]*$ && "$cache_vus" =~ ^[1-9][0-9]*$ && "$mix_vus" =~ ^[1-9][0-9]*$ && "$repetitions" =~ ^[1-9][0-9]*$ ]] || (( claimant_count < 2 )); then
+  echo "Dataset counts, virtual-user counts, or BENCHMARK_REPETITIONS are invalid." >&2
   exit 1
 fi
 
@@ -78,7 +79,10 @@ write_metadata() {
     echo "claim_count=${claim_count}"
     echo "claimant_count=${claimant_count}"
     echo "anchor_timestamp=${anchor_timestamp}"
-    echo "virtual_users=${vus}"
+    echo "cache_virtual_users=${cache_vus}"
+    echo "mixed_api_virtual_users=${mix_vus}"
+    echo "cache_authentication_mode=static-benchmark-users"
+    echo "mixed_api_authentication_mode=database"
     echo "read_duration=${read_duration}"
     echo "mix_duration=${mix_duration}"
     echo "warmup_duration=${warmup_duration}"
@@ -112,6 +116,12 @@ register_user() {
 
 restart_app() {
   export CLAIMS_CACHE_ENABLED="$1"
+  export BENCHMARK_STATIC_USERS="$2"
+  if [[ "$BENCHMARK_STATIC_USERS" == "true" ]]; then
+    export BENCHMARK_AUTH_MODE=static-benchmark-users
+  else
+    export BENCHMARK_AUTH_MODE=database
+  fi
   "${compose[@]}" up --detach --no-deps --force-recreate app >/dev/null
   wait_for_health app
 }
@@ -121,6 +131,7 @@ run_k6() {
   local label="$2"
   local duration="$3"
   local raw_output="${4:-false}"
+  local virtual_users="$5"
   local output_args=()
   if [[ "$raw_output" == "true" ]]; then
     output_args=(--out "json=${container_result_dir}/${label}-raw.json.gz")
@@ -132,7 +143,8 @@ run_k6() {
     -e CLAIM_IDS_FILE="${container_result_dir}/claim-ids.json" \
     -e RESULT_DIR="$container_result_dir" \
     -e RUN_LABEL="$label" \
-    -e VUS="$vus" \
+    -e AUTH_MODE="$BENCHMARK_AUTH_MODE" \
+    -e VUS="$virtual_users" \
     -e DURATION="$duration" \
     -e HOTSET_PERCENT="${HOTSET_PERCENT:-10}" \
     k6 run "${output_args[@]}" "/scripts/${script}"
@@ -141,12 +153,23 @@ run_k6() {
 capture_runtime_counters() {
   local label="$1"
   "${compose[@]}" exec -T redis sh -c \
-    'REDISCLI_AUTH=benchmark-only-redis-password redis-cli INFO stats' \
+    'export REDISCLI_AUTH=benchmark-only-redis-password; redis-cli INFO stats; redis-cli INFO memory; redis-cli INFO commandstats; redis-cli DBSIZE' \
     >"${result_dir}/${label}-redis-stats.txt"
   "${compose[@]}" exec -T postgres psql -U claims_app -d claims_benchmark -X -P pager=off \
     -c "SELECT datname, xact_commit, blks_read, blks_hit, tup_returned, tup_fetched
         FROM pg_stat_database WHERE datname = 'claims_benchmark';" \
     >"${result_dir}/${label}-postgres-stats.txt"
+}
+
+capture_app_cpu() {
+  local label="$1"
+  local container_id
+  container_id="$("${compose[@]}" ps -q app)"
+  docker stats --no-stream --format '{{json .}}' "$container_id" \
+    >"${result_dir}/${label}-docker-stats.json"
+  docker exec "$container_id" sh -c \
+    'cat /sys/fs/cgroup/cpu.stat 2>/dev/null || cat /sys/fs/cgroup/cpu/cpu.stat 2>/dev/null || true' \
+    >"${result_dir}/${label}-app-cpu-stat.txt"
 }
 
 cd "$repo_dir"
@@ -195,23 +218,27 @@ for (( repetition=1; repetition<=repetitions; repetition++ )); do
     enabled=false
     [[ "$variant" == "on" ]] && enabled=true
     label="cache-${variant}-r${repetition}"
-    restart_app "$enabled"
+    restart_app "$enabled" true
     "${compose[@]}" exec -T redis sh -c \
       'export REDISCLI_AUTH=benchmark-only-redis-password; redis-cli FLUSHALL >/dev/null && redis-cli CONFIG RESETSTAT >/dev/null'
-    run_k6 claim-read.js "${label}-warmup" "$warmup_duration" false
+    run_k6 claim-read.js "${label}-warmup" "$warmup_duration" false "$cache_vus"
     "${compose[@]}" exec -T redis sh -c \
       'REDISCLI_AUTH=benchmark-only-redis-password redis-cli CONFIG RESETSTAT >/dev/null'
     "${compose[@]}" exec -T postgres psql -U claims_app -d claims_benchmark -q \
       -c 'SELECT pg_stat_reset();' >/dev/null
-    run_k6 claim-read.js "$label" "$read_duration" true
+    capture_app_cpu "${label}-before"
+    run_k6 claim-read.js "$label" "$read_duration" true "$cache_vus"
+    capture_app_cpu "${label}-after"
     capture_runtime_counters "$label"
   done
 done
 
-restart_app true
+restart_app true false
 "${compose[@]}" exec -T redis sh -c \
   'export REDISCLI_AUTH=benchmark-only-redis-password; redis-cli FLUSHALL >/dev/null && redis-cli CONFIG RESETSTAT >/dev/null'
-run_k6 api-mix.js api-mix-cache-on "$mix_duration" true
+capture_app_cpu api-mix-cache-on-before
+run_k6 api-mix.js api-mix-cache-on "$mix_duration" true "$mix_vus"
+capture_app_cpu api-mix-cache-on-after
 capture_runtime_counters api-mix-cache-on
 
 ALLOW_BENCHMARK_INDEX_DDL=true \

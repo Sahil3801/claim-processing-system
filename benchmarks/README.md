@@ -34,7 +34,8 @@ bash benchmarks/scripts/run-benchmarks.sh
 The default run uses:
 
 - 100,000 claims and 1,000 claimants anchored at `2026-01-01T00:00:00`
-- 20 constant virtual users
+- two constant virtual users for cache-isolation trials and ten for the mixed API
+  workload
 - 15-second unmeasured warm-ups and 60-second measured API trials
 - three cache-disabled and three cache-enabled repetitions, alternating order
 - an 80/20 access pattern where 80% of detail reads target the hottest 10% of
@@ -47,7 +48,8 @@ Override inputs explicitly when needed:
 ```bash
 CLAIM_COUNT=250000 \
 CLAIMANT_COUNT=2500 \
-BENCHMARK_VUS=40 \
+CACHE_BENCHMARK_VUS=4 \
+MIX_BENCHMARK_VUS=20 \
 READ_DURATION=2m \
 MIX_DURATION=2m \
 WARMUP_DURATION=30s \
@@ -55,6 +57,19 @@ BENCHMARK_REPETITIONS=5 \
 DB_BENCHMARK_DURATION=60 \
 bash benchmarks/scripts/run-benchmarks.sh
 ```
+
+`BENCHMARK_VUS` remains a compatibility override that sets both workloads. The
+more explicit cache and mixed-workload variables are preferred because the two
+tests answer different questions.
+
+For the prepared 10K validation run, use exactly:
+
+```bash
+bash benchmarks/scripts/run-10k-validation.sh
+```
+
+Its checked-in inputs are in `profiles/10k-validation.env`. Complete and review
+that run before starting the final 100K benchmark.
 
 Use the same Git commit, clean/dirty state, Docker versions, host class, dataset
 size, VUs, durations, and resource limits for comparisons. Do not compare runs
@@ -81,13 +96,19 @@ and must never be reused elsewhere.
 
 `k6/claim-read.js` measures `GET /api/claims/{id}` using an administrator token,
 which avoids an additional claimant-ownership database lookup and isolates the
-cache-aside detail read. For every repetition the runner:
+cache-aside detail read. Production JWT authentication intentionally reloads the
+user from PostgreSQL on every request. For this cache-only comparison, the
+`benchmark` profile supplies two fixed principals so that unrelated user query
+does not hide the claim-read difference. This fixture cannot activate outside
+the benchmark profile. For every repetition the runner:
 
 1. Recreates the application with `CLAIMS_CACHE_ENABLED=false` or `true`.
 2. Flushes Redis and performs an unmeasured warm-up.
 3. Resets Redis and PostgreSQL statistics without removing warmed cache keys.
 4. Runs the measured constant-VU trial.
-5. Saves k6 results, Redis hit/miss counters, and `pg_stat_database` counters.
+5. Saves k6 results, Redis hit/miss/memory/command counters,
+   `pg_stat_database` counters, Docker resource usage, and application cgroup
+   CPU/throttling counters.
 
 Disabled mode bypasses Redis completely instead of treating a broken Redis
 connection timeout as a database baseline. PostgreSQL remains the source of
@@ -105,7 +126,11 @@ Compare all repetitions, not only the fastest result.
 - 5% claim creation followed by submission
 
 Creation and submission use unique idempotency keys. Setup/login traffic and the
-warm-up summaries are labeled separately from measured traffic.
+warm-up summaries are labeled separately from measured traffic. The mixed API
+run retains database-backed authentication. Its Kafka producer remains enabled,
+but the benchmark disables the notification consumer so SMTP failures and retry
+logging do not contaminate API latency; Kafka consumer behavior remains covered
+by the focused Phase 9 tests.
 
 Each measured summary contains `p(50)`, `p(95)`, and `p(99)` latency in
 milliseconds, request-counter rate in requests/second, error-rate ratio, and
@@ -138,6 +163,8 @@ Every run is stored under `benchmarks/results/<UTC-run-id>/`:
 - `*-summary.json`: full k6 aggregate summaries
 - `api-comparison.csv`: p50/p95/p99, throughput, errors, and counts per trial
 - `*-redis-stats.txt` and `*-postgres-stats.txt`: cache/database counters
+- `*-docker-stats.json` and `*-app-cpu-stat.txt`: resource and CPU-throttling
+  evidence before and after each workload
 - `without-index-*` and `with-index-*`: raw plans, DDL timing, and pgbench output
 - `methodology.env`: workload parameters and Git commit
 - Docker, Compose, CPU, memory, image, status, and application log records

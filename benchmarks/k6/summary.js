@@ -26,6 +26,7 @@ export function benchmarkSummary(data) {
       duration: __ENV.DURATION,
       hotsetPercent: __ENV.HOTSET_PERCENT,
       pauseMs: __ENV.PAUSE_MS,
+      authenticationMode: __ENV.AUTH_MODE,
     },
     metrics: data.metrics,
     rootGroup: data.root_group,

@@ -105,12 +105,14 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: benchmark-only-redis-password
       CLAIMS_CACHE_ENABLED: ${CLAIMS_CACHE_ENABLED:-true}
+      BENCHMARK_STATIC_USERS: ${BENCHMARK_STATIC_USERS:-false}
       CLAIM_CACHE_DETAIL_TTL: PT30M
       CLAIM_CACHE_STATUS_TTL: PT30M
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_CREATE_TOPICS: "true"
       KAFKA_TOPIC_PARTITIONS: 1
       KAFKA_TOPIC_REPLICAS: 1
+      SPRING_KAFKA_LISTENER_AUTO_STARTUP: "false"
       JWT_SECRET: benchmark-only-jwt-secret-at-least-32-characters
       JWT_ISSUER: claims-benchmark
       JWT_EXPIRATION_MS: 3600000

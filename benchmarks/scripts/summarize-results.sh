@@ -8,7 +8,7 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 output_file="${result_dir}/api-comparison.csv"
-echo 'label,p50_ms,p95_ms,p99_ms,throughput_requests_per_second,error_rate,total_requests' >"$output_file"
+echo 'label,authentication_mode,p50_ms,p95_ms,p99_ms,throughput_requests_per_second,error_rate,total_requests' >"$output_file"
 
 shopt -s nullglob
 summary_files=("${result_dir}"/cache-*-r*-summary.json "${result_dir}"/api-mix-cache-on-summary.json)
@@ -38,6 +38,7 @@ for summary_file in "${summary_files[@]}"; do
     --arg errors "$error_metric" \
     '[
       $label,
+      (.configuration.authenticationMode // "not-recorded"),
       .metrics[$latency].values["p(50)"],
       .metrics[$latency].values["p(95)"],
       .metrics[$latency].values["p(99)"],

@@ -33,6 +33,8 @@ class BenchmarkConfigurationTest {
         assertThat(appEnvironment)
                 .containsEntry("SPRING_PROFILES_ACTIVE", "benchmark")
                 .containsKey("CLAIMS_CACHE_ENABLED")
+                .containsKey("BENCHMARK_STATIC_USERS")
+                .containsEntry("SPRING_KAFKA_LISTENER_AUTO_STARTUP", "false")
                 .containsEntry("DB_NAME", "claims_benchmark");
 
         Map<String, Object> k6 = map(services.get("k6"));
@@ -52,6 +54,7 @@ class BenchmarkConfigurationTest {
                 .contains("claim_detail_latency")
                 .contains("claim_detail_errors")
                 .contains("claim_detail_requests")
+                .contains("responseType: \"text\"")
                 .contains("p(50)", "p(95)", "p(99)");
         assertThat(apiMix)
                 .contains("/api/claims/my")
@@ -69,11 +72,16 @@ class BenchmarkConfigurationTest {
         String indexRunner = Files.readString(ROOT.resolve("scripts/query-index-comparison.sh"));
         String data = Files.readString(ROOT.resolve("db/generate-synthetic-data.sql"));
         String readme = Files.readString(ROOT.resolve("README.md"));
+        String tenThousandProfile = Files.readString(
+                ROOT.resolve("profiles/10k-validation.env"));
 
         assertThat(runner)
                 .contains("-raw.json.gz")
                 .contains("BENCHMARK_REPETITIONS:-3")
                 .contains("CLAIMS_CACHE_ENABLED")
+                .contains("BENCHMARK_STATIC_USERS")
+                .contains("CACHE_BENCHMARK_VUS")
+                .contains("capture_app_cpu")
                 .contains("pg_stat_reset()")
                 .contains("summarize-results.sh");
         assertThat(indexRunner)
@@ -88,8 +96,13 @@ class BenchmarkConfigurationTest {
                 .contains("ANALYZE claims");
         assertThat(readme)
                 .contains("No benchmark number is checked into this repository")
-                .contains("Redis hit/miss counters")
+                .contains("Redis hit/miss/memory/command counters")
+                .contains("run-10k-validation.sh")
                 .contains("EXPLAIN (ANALYZE, BUFFERS, WAL, SETTINGS, FORMAT JSON)");
+        assertThat(tenThousandProfile)
+                .contains("CLAIM_COUNT=10000")
+                .contains("CACHE_BENCHMARK_VUS=2")
+                .contains("BENCHMARK_REPETITIONS=3");
     }
 
     @SuppressWarnings("unchecked")
