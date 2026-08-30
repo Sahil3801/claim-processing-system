@@ -1,5 +1,7 @@
 package com.claim.demo.dto;
 
+import com.claim.demo.domain.ClaimStatus;
+import java.math.BigDecimal;
 import java.util.Date;
 
 public class ClaimDTO {
@@ -7,21 +9,25 @@ public class ClaimDTO {
     private Long userId;
     private String emailId;
     private Date claimDate;
-    private Double claimAmount;
+    private BigDecimal claimAmount;
     private String claimType;
-    private String claimStatus;
+    private String description;
+    private ClaimStatus claimStatus;
     private Date lastUpdated;
 
     // Constructors, getters, and setters
 
     public ClaimDTO() {}
 
-    public ClaimDTO(Long claimId, Long userId, Date claimDate, Double claimAmount, String claimType, String claimStatus, Date lastUpdated) {
+    public ClaimDTO(Long claimId, Long userId, String emailId, Date claimDate, BigDecimal claimAmount,
+                    String claimType, String description, ClaimStatus claimStatus, Date lastUpdated) {
         this.claimId = claimId;
         this.userId = userId;
+        this.emailId = emailId;
         this.claimDate = claimDate;
         this.claimAmount = claimAmount;
         this.claimType = claimType;
+        this.description = description;
         this.claimStatus = claimStatus;
         this.lastUpdated = lastUpdated;
     }
@@ -41,7 +47,7 @@ public class ClaimDTO {
         return claimDate;
     }
 
-    public Double getClaimAmount() {
+    public BigDecimal getClaimAmount() {
         return claimAmount;
     }
 
@@ -49,7 +55,11 @@ public class ClaimDTO {
         return claimType;
     }
 
-    public String getClaimStatus() {
+    public String getDescription() {
+        return description;
+    }
+
+    public ClaimStatus getClaimStatus() {
         return claimStatus;
     }
     public String getEmailId() {
@@ -68,11 +78,15 @@ public class ClaimDTO {
         this.userId = userId;
     }
 
+    public void setEmailId(String emailId) {
+        this.emailId = emailId;
+    }
+
     public void setClaimDate(Date claimDate) {
         this.claimDate = claimDate;
     }
 
-    public void setClaimAmount(Double claimAmount) {
+    public void setClaimAmount(BigDecimal claimAmount) {
         this.claimAmount = claimAmount;
     }
 
@@ -80,7 +94,11 @@ public class ClaimDTO {
         this.claimType = claimType;
     }
 
-    public void setClaimStatus(String claimStatus) {
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setClaimStatus(ClaimStatus claimStatus) {
         this.claimStatus = claimStatus;
     }
 

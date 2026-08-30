@@ -1,14 +1,17 @@
 package com.claim.demo.entity;
 
-import java.util.Date;
+import com.claim.demo.domain.ClaimStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import java.math.BigDecimal;
 import java.util.Date;
 
 @Entity
@@ -16,18 +19,20 @@ import java.util.Date;
 public class ClaimReport {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
 
-    @Column(name = "status")
-    private String claimStatus;
+    @Column(name = "status", nullable = false, length = 32)
+    @Enumerated(EnumType.STRING)
+    private ClaimStatus claimStatus;
 
-    @Column(name = "total_claims")
+    @Column(name = "total_claims", nullable = false)
     private Long totalClaims;
 
-    @Column(name = "total_amount")
-    private Double totalClaimAmount;
+    @Column(name = "total_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal totalClaimAmount;
 
-    @Column(name = "report_date")
+    @Column(name = "report_date", nullable = false)
     private Date reportDate;
 
     // Getters
@@ -35,7 +40,7 @@ public class ClaimReport {
         return id;
     }
 
-    public String getClaimStatus() {
+    public ClaimStatus getClaimStatus() {
         return claimStatus;
     }
 
@@ -43,7 +48,7 @@ public class ClaimReport {
         return totalClaims;
     }
 
-    public Double getTotalClaimAmount() {
+    public BigDecimal getTotalClaimAmount() {
         return totalClaimAmount;
     }
 
@@ -56,7 +61,7 @@ public class ClaimReport {
         this.id = id;
     }
 
-    public void setClaimStatus(String claimStatus) {
+    public void setClaimStatus(ClaimStatus claimStatus) {
         this.claimStatus = claimStatus;
     }
 
@@ -64,7 +69,7 @@ public class ClaimReport {
         this.totalClaims = totalClaims;
     }
 
-    public void setTotalClaimAmount(Double totalClaimAmount) {
+    public void setTotalClaimAmount(BigDecimal totalClaimAmount) {
         this.totalClaimAmount = totalClaimAmount;
     }
 
@@ -72,4 +77,3 @@ public class ClaimReport {
         this.reportDate = reportDate;
     }
 }
-

@@ -14,15 +14,16 @@ import jakarta.persistence.Table;
 public class Notification {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
 
-    @Column(name = "user_id")
+    @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column
+    @Column(nullable = false, length = 255)
     private String message;
 
-    @Column
+    @Column(nullable = false)
     private Date timestamp;
 
     // Constructors
@@ -67,4 +68,3 @@ public class Notification {
         this.timestamp = timestamp;
     }
 }
-

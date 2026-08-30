@@ -1,8 +1,11 @@
 package com.claim.demo.entity;
 
-
+import com.claim.demo.domain.ClaimStatus;
+import com.claim.demo.exception.InvalidClaimTransitionException;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -11,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
+import java.math.BigDecimal;
 import java.util.Date;
 
 
@@ -19,29 +23,40 @@ import java.util.Date;
 public class Claim {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "claim_id")
     private Long claimId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "userId", referencedColumnName = "userId")
+    @JoinColumn(name = "user_id", referencedColumnName = "user_id", nullable = false)
     private User user;
 
-    @Column
+    @Column(name = "claim_date", nullable = false)
     private Date claimDate;
 
-    @Column
-    private Double claimAmount;
+    @Column(name = "claim_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal claimAmount;
     
-    @Column
+    @Column(name = "email_id", length = 255)
     private String emailId;
 
-    @Column
+    @Column(name = "claim_type", nullable = false, length = 100)
     private String claimType;
 
-    @Column
-    private String claimStatus;
+    @Column(name = "description", nullable = false, length = 2000)
+    private String description;
 
-    @Column
+    @Enumerated(EnumType.STRING)
+    @Column(name = "claim_status", nullable = false, length = 32)
+    private ClaimStatus claimStatus = ClaimStatus.DRAFT;
+
+    @Column(name = "last_updated", nullable = false)
     private Date lastUpdated;
+
+    @Column(name = "idempotency_key", length = 128, unique = true, updatable = false)
+    private String idempotencyKey;
+
+    @Column(name = "submission_idempotency_key", length = 128, unique = true)
+    private String submissionIdempotencyKey;
 
     // Getters and setters omitted for brevity
     
@@ -49,6 +64,10 @@ public class Claim {
     
     public String getEmailId() {
         return emailId;
+    }
+
+    public void setEmailId(String emailId) {
+        this.emailId = emailId;
     }
  
     public Long getClaimId() {
@@ -75,11 +94,11 @@ public class Claim {
         this.claimDate = claimDate;
     }
 
-    public Double getClaimAmount() {
+    public BigDecimal getClaimAmount() {
         return claimAmount;
     }
 
-    public void setClaimAmount(Double claimAmount) {
+    public void setClaimAmount(BigDecimal claimAmount) {
         this.claimAmount = claimAmount;
     }
 
@@ -91,12 +110,25 @@ public class Claim {
         this.claimType = claimType;
     }
 
-    public String getClaimStatus() {
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public ClaimStatus getClaimStatus() {
         return claimStatus;
     }
 
-    public void setClaimStatus(String claimStatus) {
-        this.claimStatus = claimStatus;
+    public ClaimStatus transitionTo(ClaimStatus newStatus) {
+        ClaimStatus previousStatus = claimStatus;
+        if (previousStatus == null || !previousStatus.canTransitionTo(newStatus)) {
+            throw new InvalidClaimTransitionException(claimId, previousStatus, newStatus);
+        }
+        claimStatus = newStatus;
+        return previousStatus;
     }
 
     public Date getLastUpdated() {
@@ -106,5 +138,20 @@ public class Claim {
     public void setLastUpdated(Date lastUpdated) {
         this.lastUpdated = lastUpdated;
     }
-}
 
+    public String getIdempotencyKey() {
+        return idempotencyKey;
+    }
+
+    public void setIdempotencyKey(String idempotencyKey) {
+        this.idempotencyKey = idempotencyKey;
+    }
+
+    public String getSubmissionIdempotencyKey() {
+        return submissionIdempotencyKey;
+    }
+
+    public void setSubmissionIdempotencyKey(String submissionIdempotencyKey) {
+        this.submissionIdempotencyKey = submissionIdempotencyKey;
+    }
+}

@@ -1,7 +1,5 @@
 package com.claim.demo.entity;
 
-import java.util.Date;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -9,6 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import java.math.BigDecimal;
 import java.util.Date;
 
 @Entity
@@ -16,16 +15,17 @@ import java.util.Date;
 public class ClaimsSummary {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
     private Long id;
 
-    @Column(name = "report_generated")
+    @Column(name = "report_generated", nullable = false)
     private Date reportGenerated;
 
-    @Column(name = "number_of_claims")
+    @Column(name = "number_of_claims", nullable = false)
     private Integer numberOfClaims;
 
-    @Column(name = "total_amount")
-    private Double totalAmount;
+    @Column(name = "total_amount", nullable = false, precision = 19, scale = 2)
+    private BigDecimal totalAmount;
 
     // Getters
     public Long getId() {
@@ -40,7 +40,7 @@ public class ClaimsSummary {
         return numberOfClaims;
     }
 
-    public Double getTotalAmount() {
+    public BigDecimal getTotalAmount() {
         return totalAmount;
     }
 
@@ -57,9 +57,7 @@ public class ClaimsSummary {
         this.numberOfClaims = numberOfClaims;
     }
 
-    public void setTotalAmount(Double totalAmount) {
+    public void setTotalAmount(BigDecimal totalAmount) {
         this.totalAmount = totalAmount;
     }
 }
-
-

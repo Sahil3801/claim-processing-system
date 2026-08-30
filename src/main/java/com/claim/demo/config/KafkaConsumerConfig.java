@@ -1,69 +1,74 @@
 package com.claim.demo.config;
 
-import org.springframework.kafka.annotation.EnableKafka;
+import com.claim.demo.event.ClaimStatusEvent;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
-import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.ConsumerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.common.serialization.StringDeserializer;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
-
-import com.claim.demo.dto.ClaimStatusUpdateMessage;
-import com.claim.demo.service.EmailService;
+import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Configuration class for Kafka consumer.
- * Uses @EnableKafka annotation to enable detection of @KafkaListener annotation on spring managed beans.
- */
 @EnableKafka
 @Configuration
 public class KafkaConsumerConfig {
-    @Autowired
-    private EmailService emailService;  // Autowired EmailService to use for sending notifications via email.
 
-    /**
-     * Configures the consumer factory which is responsible for creating Kafka consumers.
-     * @return a configured ConsumerFactory for Kafka.
-     */
     @Bean
-    public ConsumerFactory<String, ClaimStatusUpdateMessage> consumerFactory() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");  // Kafka server URL
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, "group_id");  // Consumer group ID
-        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());  // Key deserializer
-        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class.getName());  // Value deserializer
-        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(),
-                new JsonDeserializer<>(ClaimStatusUpdateMessage.class));  // Consumer factory for ClaimStatusUpdateMessage objects.
+    public ConsumerFactory<String, ClaimStatusEvent> claimStatusConsumerFactory(
+            KafkaProperties kafkaProperties) {
+        Map<String, Object> properties = new HashMap<>(
+                kafkaProperties.buildConsumerProperties(null));
+        properties.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+
+        JsonDeserializer<ClaimStatusEvent> valueDeserializer =
+                new JsonDeserializer<>(ClaimStatusEvent.class, false);
+        valueDeserializer.addTrustedPackages("com.claim.demo.event");
+
+        return new DefaultKafkaConsumerFactory<>(
+                properties,
+                new ErrorHandlingDeserializer<>(new StringDeserializer()),
+                new ErrorHandlingDeserializer<>(valueDeserializer));
     }
 
-    /**
-     * Bean to create a container factory to manage Kafka listener containers.
-     * @return a configured KafkaListenerContainerFactory.
-     */
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, ClaimStatusUpdateMessage> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, ClaimStatusUpdateMessage> factory =
-            new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(consumerFactory());  // Set the custom consumer factory.
+    public DefaultErrorHandler claimStatusErrorHandler(
+            KafkaTemplate<String, Object> kafkaTemplate,
+            @Value("${claims.kafka.topics.claim-status-dlt:claims.status.v1.dlt}") String dltTopic,
+            @Value("${claims.kafka.retry.interval-ms:1000}") long retryInterval,
+            @Value("${claims.kafka.retry.max-retries:2}") long maxRetries) {
+        DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
+                kafkaTemplate,
+                (record, exception) -> new TopicPartition(dltTopic, record.partition()));
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(
+                recoverer, new FixedBackOff(retryInterval, maxRetries));
+        errorHandler.setCommitRecovered(true);
+        return errorHandler;
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, ClaimStatusEvent>
+            claimStatusKafkaListenerContainerFactory(
+                    ConsumerFactory<String, ClaimStatusEvent> claimStatusConsumerFactory,
+                    DefaultErrorHandler claimStatusErrorHandler) {
+        ConcurrentKafkaListenerContainerFactory<String, ClaimStatusEvent> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(claimStatusConsumerFactory);
+        factory.setCommonErrorHandler(claimStatusErrorHandler);
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
         return factory;
-    }
-
-    /**
-     * Kafka listener to handle messages from 'claim-updates' topic.
-     * Processes each message to perform business operations, like sending an email notification.
-     * @param message the ClaimStatusUpdateMessage from Kafka.
-     */
-    @KafkaListener(topics = "claim-updates", groupId = "group_id")
-    public void handleClaimStatusUpdate(ClaimStatusUpdateMessage message) {
-        // Example email sending function call
-        emailService.sendEmail(message.getUserEmail(), "Claim Status Update",
-            "Your claim #" + message.getClaimId() + " has been updated to: " + message.getNewStatus());
     }
 }

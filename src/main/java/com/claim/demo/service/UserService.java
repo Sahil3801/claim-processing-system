@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.claim.demo.dto.UserDTO;
+import com.claim.demo.dto.RegisterUserRequest;
+import com.claim.demo.domain.UserRole;
 import com.claim.demo.entity.User;
 import com.claim.demo.repository.UserRepository;
 
@@ -21,8 +23,12 @@ public class UserService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    public UserDTO registerUser(User user) {
-        user.setPasswordHash(passwordEncoder.encode(user.getPasswordHash()));
+    public UserDTO registerUser(RegisterUserRequest request) {
+        User user = new User();
+        user.setUsername(request.username());
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setEmail(request.email());
+        user.setRole(UserRole.CLAIMANT);
         user.setCreatedAt(new Date());
         user.setStatus("active");
         return convertToDTO(userRepository.save(user));
@@ -30,7 +36,9 @@ public class UserService {
 
     public UserDTO loginUser(String username, String password) {
         User user = userRepository.findByUsername(username);
-        if (user != null && passwordEncoder.matches(password, user.getPasswordHash())) {
+        if (user != null
+                && "active".equalsIgnoreCase(user.getStatus())
+                && passwordEncoder.matches(password, user.getPasswordHash())) {
             user.setLastLogin(new Date());
             userRepository.save(user);
             return convertToDTO(user);
@@ -67,7 +75,7 @@ public class UserService {
             user.getUserId(),
             user.getUsername(),
             user.getEmail(),
-            user.getRole(),
+            user.getRole().name(),
             user.getStatus()
         );
     }

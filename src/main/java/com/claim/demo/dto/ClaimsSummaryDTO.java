@@ -1,44 +1,23 @@
 package com.claim.demo.dto;
 
-import java.util.Date;
+import java.math.BigDecimal;
 
-public class ClaimsSummaryDTO {
-    private Date reportGenerated;
-    private Integer numberOfClaims;
-    private Double totalAmount;
+public record ClaimsSummaryDTO(
+        long totalClaims,
+        BigDecimal totalClaimAmount,
+        BigDecimal averageClaimAmount,
+        ClaimOutcomeSummaryDTO pending,
+        ClaimOutcomeSummaryDTO approved,
+        ClaimOutcomeSummaryDTO rejected,
+        ClaimOutcomeSummaryDTO settled) {
 
-    // Constructors
-    public ClaimsSummaryDTO() {}
-
-    public ClaimsSummaryDTO(Date reportGenerated, Integer numberOfClaims, Double totalAmount) {
-        this.reportGenerated = reportGenerated;
-        this.numberOfClaims = numberOfClaims;
-        this.totalAmount = totalAmount;
+    public ClaimsSummaryDTO(long totalClaims, BigDecimal totalClaimAmount) {
+        this(totalClaims, totalClaimAmount, average(totalClaimAmount, totalClaims),
+                ClaimOutcomeSummaryDTO.empty(), ClaimOutcomeSummaryDTO.empty(),
+                ClaimOutcomeSummaryDTO.empty(), ClaimOutcomeSummaryDTO.empty());
     }
 
-    // Getters
-    public Date getReportGenerated() {
-        return reportGenerated;
-    }
-
-    public Integer getNumberOfClaims() {
-        return numberOfClaims;
-    }
-
-    public Double getTotalAmount() {
-        return totalAmount;
-    }
-
-    // Setters
-    public void setReportGenerated(Date reportGenerated) {
-        this.reportGenerated = reportGenerated;
-    }
-
-    public void setNumberOfClaims(Integer numberOfClaims) {
-        this.numberOfClaims = numberOfClaims;
-    }
-
-    public void setTotalAmount(Double totalAmount) {
-        this.totalAmount = totalAmount;
+    private static BigDecimal average(BigDecimal amount, long count) {
+        return ClaimOutcomeSummaryDTO.average(amount, count);
     }
 }

@@ -1,11 +1,13 @@
 package com.claim.demo.controller;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.claim.demo.dto.NotificationDTO;
+import com.claim.demo.dto.NotificationSubscriptionRequest;
+import com.claim.demo.dto.NotificationUnsubscriptionRequest;
 import com.claim.demo.service.NotificationService;
+
+import jakarta.validation.Valid;
 
 /**
  * Controller for handling notification subscriptions.
@@ -14,8 +16,11 @@ import com.claim.demo.service.NotificationService;
 @RestController
 @RequestMapping("/notifications") // Base URI for all handlers in this controller.
 public class NotificationsController {
-    @Autowired
-    private NotificationService notificationService;  // Service layer handling the business logic for notifications.
+    private final NotificationService notificationService;
+
+    public NotificationsController(NotificationService notificationService) {
+        this.notificationService = notificationService;
+    }
 
     /**
      * Endpoint to subscribe to notifications.
@@ -25,9 +30,9 @@ public class NotificationsController {
      * @return a response entity with a success message and the HTTP status.
      */
     @PostMapping("/subscribe")
-    public ResponseEntity<String> subscribe(@RequestBody NotificationDTO notificationDTO) {
+    public ResponseEntity<String> subscribe(@Valid @RequestBody NotificationSubscriptionRequest request) {
         // Call the notification service to handle the subscription logic.
-        notificationService.subscribeToNotifications(notificationDTO.getUserId(), notificationDTO.getMessage());
+        notificationService.subscribeToNotifications(request.userId(), request.message());
         // Return a success response.
         return ResponseEntity.ok("Subscribed successfully to notifications.");
     }
@@ -40,9 +45,9 @@ public class NotificationsController {
      * @return a response entity with a success message and the HTTP status.
      */
     @PostMapping("/unsubscribe")
-    public ResponseEntity<String> unsubscribe(@RequestBody NotificationDTO notificationDTO) {
+    public ResponseEntity<String> unsubscribe(@Valid @RequestBody NotificationUnsubscriptionRequest request) {
         // Call the notification service to handle the unsubscription logic.
-        notificationService.unsubscribeFromNotifications(notificationDTO.getUserId());
+        notificationService.unsubscribeFromNotifications(request.userId());
         // Return a success response.
         return ResponseEntity.ok("Unsubscribed successfully from notifications.");
     }

@@ -6,6 +6,7 @@ import org.apache.logging.log4j.core.config.Configuration;
 import org.apache.logging.log4j.core.layout.JsonLayout;
 import org.apache.logging.log4j.LogManager;
 import org.springframework.stereotype.Component;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 
 import jakarta.annotation.PostConstruct;
 
@@ -15,6 +16,7 @@ import java.net.URL;
  * Configures Log4j2 to send logs to a Splunk server using an HTTP appender.
  */
 @Component
+@ConditionalOnProperty(name = "splunk.hec.enabled", havingValue = "true")
 public class SplunkConfig {
 
     /**

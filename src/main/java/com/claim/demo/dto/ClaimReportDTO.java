@@ -1,21 +1,32 @@
 package com.claim.demo.dto;
 
+import com.claim.demo.domain.ClaimStatus;
+import java.math.BigDecimal;
+
 public class ClaimReportDTO {
-    private String claimStatus;
+    private ClaimStatus claimStatus;
     private Long totalClaims;
-    private Double totalClaimAmount;
+    private BigDecimal totalClaimAmount;
+    private BigDecimal averageClaimAmount;
 
     // Constructors
     public ClaimReportDTO() {}
 
-    public ClaimReportDTO(String claimStatus, Long totalClaims, Double totalClaimAmount) {
+    public ClaimReportDTO(ClaimStatus claimStatus, Long totalClaims, BigDecimal totalClaimAmount) {
+        this(claimStatus, totalClaims, totalClaimAmount,
+                ClaimOutcomeSummaryDTO.average(totalClaimAmount, totalClaims));
+    }
+
+    public ClaimReportDTO(ClaimStatus claimStatus, Long totalClaims, BigDecimal totalClaimAmount,
+                          BigDecimal averageClaimAmount) {
         this.claimStatus = claimStatus;
         this.totalClaims = totalClaims;
         this.totalClaimAmount = totalClaimAmount;
+        this.averageClaimAmount = averageClaimAmount;
     }
 
     // Getters
-    public String getClaimStatus() {
+    public ClaimStatus getClaimStatus() {
         return claimStatus;
     }
 
@@ -23,12 +34,16 @@ public class ClaimReportDTO {
         return totalClaims;
     }
 
-    public Double getTotalClaimAmount() {
+    public BigDecimal getTotalClaimAmount() {
         return totalClaimAmount;
     }
 
+    public BigDecimal getAverageClaimAmount() {
+        return averageClaimAmount;
+    }
+
     // Setters
-    public void setClaimStatus(String claimStatus) {
+    public void setClaimStatus(ClaimStatus claimStatus) {
         this.claimStatus = claimStatus;
     }
 
@@ -36,7 +51,11 @@ public class ClaimReportDTO {
         this.totalClaims = totalClaims;
     }
 
-    public void setTotalClaimAmount(Double totalClaimAmount) {
+    public void setTotalClaimAmount(BigDecimal totalClaimAmount) {
         this.totalClaimAmount = totalClaimAmount;
+    }
+
+    public void setAverageClaimAmount(BigDecimal averageClaimAmount) {
+        this.averageClaimAmount = averageClaimAmount;
     }
 }

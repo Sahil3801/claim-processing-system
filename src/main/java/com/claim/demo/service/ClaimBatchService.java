@@ -23,7 +23,7 @@ public class ClaimBatchService {
         for (Claim claim : claims) {
             try {
                 // Logic to determine the new status; simplified here
-                String newStatus = "Processed"; // Example status update
+                String newStatus = "UNDER_REVIEW";
                 claimService.updateClaimStatus(claim.getClaimId(), newStatus, claim.getEmailId());
             } catch (Exception e) {
                 // Log error or handle exception
@@ -32,4 +32,3 @@ public class ClaimBatchService {
         }
     }
 }
-

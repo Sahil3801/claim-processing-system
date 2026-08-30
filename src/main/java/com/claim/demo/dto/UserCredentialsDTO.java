@@ -1,7 +1,12 @@
 package com.claim.demo.dto;
 
+import jakarta.validation.constraints.NotBlank;
+
 public class UserCredentialsDTO {
+    @NotBlank(message = "username is required")
     private String username;
+
+    @NotBlank(message = "password is required")
     private String password;
 
     // Default constructor
