@@ -8,8 +8,17 @@ low-cost topology, not a highly available one.
 No script in this directory creates, modifies, or deletes AWS resources. The
 operator performs every AWS console step and explicitly runs each host script.
 
-Frontend hosting is intentionally unchanged in this phase. When it is deployed
-later, point its public API base URL at the HTTPS hostname configured here.
+This is deployment **preparation**, not a deployment record. The repository's
+[measured benchmark](../../benchmarks/analysis/20260831T045941Z.md) ran on local
+Docker Desktop/WSL2 with PostgreSQL tmpfs, not EC2/RDS. It does not validate the
+instance sizes, availability, latency, or cost of this topology. Check current
+regional offerings/pricing and perform a security/dependency review before
+provisioning or exposing the application publicly.
+
+Frontend hosting is not included. When it is deployed later, configure same-origin
+API proxying or an explicit backend CORS policy as well as the public API URL.
+The backend currently has no cross-origin policy; the local Vite proxy does not
+ship in a production build. See the [frontend guide](../../frontend/README.md).
 
 ## Architecture
 
@@ -174,11 +183,12 @@ Docker build arguments, or put backend secrets in frontend `VITE_` variables.
 Docker environment values are visible to root and Docker-group operators, so
 keep that group restricted and encrypt the EC2 volume.
 
-For stronger centralized handling without adding Secrets Manager charges, use
-SSM Parameter Store Standard `SecureString` parameters and an instance role
+As an optional centralized alternative, use SSM Parameter Store Standard
+`SecureString` parameters and an instance role
 limited to the exact production parameter path. Retrieve them into the same
 mode-600 file immediately before deployment. Do not grant wildcard parameter or
-KMS access.
+KMS access. Retrieval is not automated by this repository; review current service
+and KMS pricing rather than assuming this option has no charges.
 
 ## 5. Deploy manually
 
@@ -203,6 +213,14 @@ The deploy script:
 Flyway applies the existing schema migrations when the API starts. PostgreSQL
 remains the source of truth. Redis contains no persistent data. Kafka retains
 one day of events by default and uses the `kafka-data` Docker volume.
+
+The notification listener is enabled by default. Leaving SMTP credentials blank
+does not disable it; delivery failures retry and can reach `claims.status.v1.dlt`.
+Configure a working mail provider or explicitly disable the listener through an
+app environment override when email delivery is out of scope. Claim commits are
+not rolled back by notification failures, but there is no durable outbox or
+exactly-once email guarantee. Review the
+[architecture boundaries](../../docs/architecture.md) before relying on delivery.
 
 ## 6. Verify
 

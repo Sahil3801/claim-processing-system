@@ -95,7 +95,9 @@ class BenchmarkConfigurationTest {
                 .contains("claim_status_history")
                 .contains("ANALYZE claims");
         assertThat(readme)
-                .contains("No benchmark number is checked into this repository")
+                .contains("Measured results are documented")
+                .contains("analysis/20260831T045941Z.md")
+                .contains("local synthetic tests, not deployed AWS measurements")
                 .contains("Redis hit/miss/memory/command counters")
                 .contains("run-10k-validation.sh")
                 .contains("EXPLAIN (ANALYZE, BUFFERS, WAL, SETTINGS, FORMAT JSON)");

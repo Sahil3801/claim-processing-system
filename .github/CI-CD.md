@@ -4,6 +4,17 @@ The `ci.yml` workflow runs on every push and pull request, with an optional
 manual trigger. It verifies the Spring Boot backend, tests and builds the React
 frontend, and builds the backend Docker image without publishing it.
 
+This describes the checked-in workflow, not evidence of a completed GitHub run.
+See the [project README](../README.md) and the
+[manual AWS runbook](../deploy/aws/README.md) for runtime instructions.
+
+Backend verification uses Java 17 and `./mvnw -B -ntp verify`; frontend uses
+Node.js 22, `npm ci`, `npm test`, and `npm run build`. Docker build/inspect runs
+as a separate job with `push: false`; it does not start the application through
+Compose. Jobs have timeouts, dependency/build caching, and concurrency cancellation
+for superseded runs. Testcontainers PostgreSQL tests can skip without a usable
+Docker daemon, so a green Maven exit alone is not proof those integrations ran.
+
 ## Current credentials
 
 CI uses only the automatically provided `GITHUB_TOKEN`, referenced through
@@ -31,9 +42,11 @@ will need `id-token: write` only at job level and should pass
 `${{ secrets.AWS_ROLE_ARN }}` to the AWS credentials action. Do not store
 long-lived AWS access-key credentials in GitHub.
 
-Production application credentials should live in AWS Secrets Manager or
-Systems Manager Parameter Store and be injected into the runtime service. The
-Docker image must remain environment-neutral.
+The current manual deployment path uses an operator-owned mode-600 environment
+file and injects secrets at runtime. Central retrieval from Systems Manager
+Parameter Store or Secrets Manager is an optional operator integration, not
+implemented in CI; review access policy and service charges before choosing it.
+The Docker image must remain environment-neutral.
 
 The future deployment workflow can reuse the Docker build configuration, add
 an ECR login, switch `push` to `true`, and deploy the immutable image digest.

@@ -6,9 +6,12 @@ Redis cache, single-node Kafka, one application container, and a k6 load
 generator. It does not connect to or modify the normal development or
 production database.
 
-No benchmark number is checked into this repository. Run results depend on the
-host, Docker runtime, resource contention, dataset size, and selected load. The
-harness records those inputs and saves only measurements it actually observes.
+Measured results are documented in the
+[final Phase 16 report](analysis/20260831T045941Z.md), with the earlier
+[10K diagnosis](analysis/20260830T191258Z.md) retained for context. Raw result
+directories remain ignored by Git and must be archived separately. Results
+depend on the host, Docker runtime, resource contention, dataset size, and
+selected load. These are local synthetic tests, not deployed AWS measurements.
 
 ## Prerequisites and safety
 
@@ -38,8 +41,8 @@ The default run uses:
   workload
 - 15-second unmeasured warm-ups and 60-second measured API trials
 - three cache-disabled and three cache-enabled repetitions, alternating order
-- an 80/20 access pattern where 80% of detail reads target the hottest 10% of
-  the selected claim IDs
+- an intended 80/20 hot/cold pattern over selected claim IDs; the current
+  selector has the working-set limitation documented below
 - one 60-second realistic mixed-API run with caching enabled
 - 30-second pgbench trials with four clients and two worker threads
 
@@ -68,8 +71,37 @@ For the prepared 10K validation run, use exactly:
 bash benchmarks/scripts/run-10k-validation.sh
 ```
 
-Its checked-in inputs are in `profiles/10k-validation.env`. Complete and review
-that run before starting the final 100K benchmark.
+Its checked-in inputs are in `profiles/10k-validation.env`. It remains a smaller
+validation option before new large runs. The completed final 100K run is
+`20260831T045941Z`; its measured parameters, not the harness defaults, govern
+interpretation of that result.
+
+### Completed final run and its overrides
+
+Run `20260831T045941Z` used 100,000 seeded claims, 1,000 claimants, **20 cache VUs
+and 20 mixed VUs**, three 60-second cache trials per mode, 15-second cache
+warmups, and one 60-second mixed trial. PostgreSQL used tmpfs on local
+Docker Desktop/WSL2, and the application was capped at one CPU. The final report
+records the exact commit, host, images, CPU counters, and formulas.
+
+To start a new experiment with those recorded workload settings (not reproduce
+identical timings or overwrite the original run):
+
+```bash
+CLAIM_COUNT=100000 CLAIMANT_COUNT=1000 \
+CACHE_BENCHMARK_VUS=20 MIX_BENCHMARK_VUS=20 \
+READ_DURATION=60s MIX_DURATION=60s WARMUP_DURATION=15s \
+BENCHMARK_REPETITIONS=3 HOTSET_PERCENT=10 \
+DB_BENCHMARK_DURATION=30 DB_BENCHMARK_CLIENTS=4 DB_BENCHMARK_THREADS=2 \
+bash benchmarks/scripts/run-benchmarks.sh
+```
+
+The recorded cache median p95/p99 reductions were 21.02%/17.97%, but p50 worsened
+1.20% and throughput fell 2.28%; paired trials and CPU throttling make a Redis
+speedup inconclusive. The selective date-index SQL test showed 82.50% lower
+average pgbench latency and 5.71x throughput in one local before/after pair.
+See the full report before using any metric, and do not extrapolate to cloud
+storage, all API endpoints, or production traffic.
 
 Use the same Git commit, clean/dirty state, Docker versions, host class, dataset
 size, VUs, durations, and resource limits for comparisons. Do not compare runs
@@ -115,9 +147,18 @@ connection timeout as a database baseline. PostgreSQL remains the source of
 truth in both modes. Trial order alternates to reduce simple first-run bias.
 Compare all repetitions, not only the fastest result.
 
+The runner samples at most 1,000 claimant-owned IDs, not every seeded claim.
+With 1,000 IDs and the default 10% hotset, the same selector drives both branch
+and index choice, limiting reachable detail IDs to 280. The final run recorded
+278-280 Redis keys and a 98.38% aggregate warmed hit rate. This is a small
+working-set cache test against a 100K database, not a 100K-key cache workload. Normalized
+raw URL tags do not permit reconstruction of per-ID access frequencies. The
+limitation is documented; the completed workload was not changed retroactively.
+
 ### Key API mix
 
-`k6/api-mix.js` uses a deterministic request mix:
+`k6/api-mix.js` uses intended deterministic iteration branches (actual request
+shares differ, especially because create/submit makes two requests):
 
 - 45% claim detail reads
 - 20% claimant pagination
@@ -125,9 +166,11 @@ Compare all repetitions, not only the fastest result.
 - 15% summary, status, type, and daily reports
 - 5% claim creation followed by submission
 
-Creation and submission use unique idempotency keys. Setup/login traffic and the
-warm-up summaries are labeled separately from measured traffic. The mixed API
-run retains database-backed authentication. Its Kafka producer remains enabled,
+Creation and submission use unique idempotency keys. Custom workload metrics
+exclude setup/login traffic; general `http_*` metrics include setup. Cache warmup
+summaries are labeled separately. The mixed API run starts with a fresh cache
+and has no equivalent workload warmup. It retains database-backed authentication.
+Its Kafka producer remains enabled,
 but the benchmark disables the notification consumer so SMTP failures and retry
 logging do not contaminate API latency; Kafka consumer behavior remains covered
 by the focused Phase 9 tests.
@@ -175,3 +218,18 @@ do not compare it with successful runs.
 
 To retain containers for inspection, set `KEEP_BENCHMARK_STACK=true`; otherwise
 the isolated stack and volumes are removed after results and logs are saved.
+
+## Verify the saved final measurements without rerunning load
+
+With the full raw directory restored locally and Node.js available:
+
+```bash
+node benchmarks/analysis/summarize-phase16.mjs benchmarks/results/20260831T045941Z
+```
+
+The read-only analyzer verifies all seven measured gzip streams against summary
+request counts/errors/percentiles and CSV values, then emits full-precision
+derived metrics. It does not mutate the application or results. The
+[final report](analysis/20260831T045941Z.md) separates resume-safe SQL/verification
+metrics from noisy cache comparisons. Return to the [project README](../README.md)
+for implementation and deployment boundaries.
