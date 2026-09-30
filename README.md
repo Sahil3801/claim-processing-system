@@ -33,8 +33,8 @@ React client -- HTTP /api + Bearer JWT --> Spring Security
                                               |
                                     Transactional services
                                       /       |        \
-                           PostgreSQL       Redis     after commit
-                           + Flyway         cache          |
+                           PostgreSQL       Redis     outbox table
+                           + Flyway         cache          |  relay
                                                        Kafka status topic
                                                            |
                                                   notification consumer
@@ -42,8 +42,9 @@ React client -- HTTP /api + Bearer JWT --> Spring Security
                                           PostgreSQL marker       SMTP
 ```
 
-PostgreSQL owns users, claims, history, and consumer deduplication markers. Redis
-is disposable. Kafka handles status notifications outside the claim transaction.
+PostgreSQL owns users, claims, history, the event outbox, and consumer deduplication
+markers. Redis is disposable. Kafka handles status notifications outside the claim
+transaction.
 Reporting reads live SQL aggregates, not Redis or stale reporting snapshots.
 This is one Spring Boot application with supporting infrastructure, not a set
 of independently deployed domain microservices.
@@ -143,7 +144,10 @@ create -> DRAFT -> SUBMITTED -> UNDER_REVIEW -> APPROVED -> SETTLED
 
 Creation saves a draft; submission is a separate operation. `REJECTED` and
 `SETTLED` are terminal. `ClaimStatus`/`Claim.transitionTo` reject invalid edges,
-including repeated officer actions. Each actual transition saves the previous
+including repeated officer actions. Claims carry a JPA `@Version`: if two officers
+act on the same claim concurrently, the later commit fails with 409
+`CONCURRENT_CLAIM_UPDATE` instead of silently overwriting the first decision.
+Each actual transition saves the previous
 status, new status, actor, optional reason, and timestamp in
 `claim_status_history` in the same database transaction. Rejection requires a
 nonblank reason of at most 500 characters at the API boundary.
@@ -201,8 +205,8 @@ exchange-rate model is implemented.
 `@RestControllerAdvice` and security handlers use `timestamp`, `status`, `error`,
 `message`, `path`, and `violations`. Common results: 400 validation/missing key,
 401 authentication required, 403 role/ownership denial, 404 claim/user missing,
-409 invalid transition, duplicate/data-integrity conflict, or idempotency-key
-reuse. Failed login is an exception to the envelope: it currently returns an
+409 invalid transition, concurrent update, duplicate/data-integrity conflict, or
+idempotency-key reuse. Failed login is an exception to the envelope: it currently returns an
 empty 401 response. See the [architecture guide](docs/architecture.md) for
 legacy notification routes and other API limitations.
 
@@ -220,6 +224,8 @@ not schema update. Open Session in View is disabled; JDBC timestamps use UTC.
 | V4 | Unique submission idempotency key |
 | V5 | Processed Kafka event ID table and processed-time index |
 | V6 | Claim-date index for bounded daily reporting |
+| V7 | Claim `version` column for optimistic concurrency control |
+| V8 | Transactional outbox for claim-status events |
 
 Live reports aggregate `claims` in PostgreSQL; the older `claim_reports` and
 `claims_summaries` tables are not the current reports' data source. "Pending"
@@ -264,9 +270,14 @@ from the benchmark's 30-minute TTL and static authentication fixture.
 
 ## Kafka status notifications
 
-Transitions publish `ClaimStatusEvent` (UUID event ID, claim ID, old/new status,
-actor, user/email, time) to `claims.status.v1`, keyed by claim ID, only after a
-successful database commit. Producer settings include `acks=all`, idempotence,
+Each transition writes a `ClaimStatusEvent` (UUID event ID, claim ID, old/new
+status, actor, user/email, time) to the `claim_status_outbox` table **in the same
+database transaction** as the claim change. A relay polls the outbox every second
+(`FOR UPDATE SKIP LOCKED`, oldest first), sends each event to `claims.status.v1`
+keyed by claim ID, and marks it published once Kafka acknowledges it. On a send
+failure it records the error and stops the batch, so a claim's later events never
+overtake earlier ones; the next poll retries. Published rows are deleted after
+seven days. Producer settings include `acks=all`, idempotence,
 10 retries, and a 120-second delivery timeout. These settings do not create
 replication when only one broker is configured.
 
@@ -277,10 +288,11 @@ A unique `processed_kafka_events.event_id` marker prevents already-completed
 events from repeating notification work. Email failure rolls back the consumer
 marker for retry, not the successful claim transaction.
 
-There is **no durable outbox**: a crash after PostgreSQL commit but before Kafka
-delivery can lose an event. SMTP is external to the consumer transaction, so a
-crash after sending mail can still cause duplicate delivery. DLT replay and
-event-marker retention cleanup are not automated. See the architecture guide
+Delivery from PostgreSQL to Kafka is **at-least-once**: a crash after the send but
+before the relay commits re-sends the event, and the consumer's event-ID marker
+skips it. SMTP is external to the consumer transaction, so a crash after sending
+mail can still cause duplicate delivery. DLT replay and consumer-marker retention
+cleanup are not automated. See the architecture guide
 for the failure windows and tradeoffs.
 
 ## Configuration and secrets
@@ -316,12 +328,13 @@ npm run build
 On Bash use `./mvnw` instead of `.\mvnw.cmd`. JUnit 5, Mockito, Spring Boot Test,
 MockMvc/security tests, H2 repository tests, and Testcontainers PostgreSQL tests
 cover transitions, validation, ownership, idempotency, reporting, migrations,
-constraints, cache fallback/after-commit eviction, and Kafka publication/consumer
-logic. Frontend Vitest/Testing Library tests cover authentication, route guards,
+constraints, cache fallback/after-commit eviction, optimistic-lock conflicts, the
+outbox relay (including broker failure and retry), and Kafka consumer logic. Frontend Vitest/Testing Library tests cover authentication, route guards,
 and API idempotency behavior.
 
 Testcontainers is configured with `disabledWithoutDocker=true`: a green build
-without Docker can skip all five PostgreSQL integration tests. Inspect
+without Docker can skip all seven PostgreSQL integration tests. CI fails the build
+if they are skipped. Inspect
 `target/surefire-reports/`, not just the exit code. `verify` generates JaCoCo
 HTML/CSV/XML in `target/site/jacoco/`; no coverage threshold or fixed percentage
 is claimed. Redis/Kafka unit mocks do not replace real broker/outage testing,
@@ -398,8 +411,9 @@ distinction and the workload limitations.
 
 Production rollout still needs a security/dependency review, frontend hosting
 and cross-origin policy, operational monitoring/recovery exercises, and stronger
-concurrency/delivery guarantees where required. There is no optimistic version
-column for general officer transitions; idempotency row locking should not be
-described as preventing every concurrent-update race. Legacy notification routes
+delivery guarantees where required. Concurrent conflicts are detected server-side
+by the claim version; clients do not yet send an expected version (for example an
+`If-Match` header), so a decision made from an old screen is only rejected if
+another write lands while it is in flight. Legacy notification routes
 have weaker authorization than claims and are not a complete subscription system.
 These are documented limitations, not capabilities added in Phase 17.

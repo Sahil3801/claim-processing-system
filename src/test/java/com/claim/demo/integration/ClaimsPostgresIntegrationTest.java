@@ -2,7 +2,9 @@ package com.claim.demo.integration;
 
 import com.claim.demo.repository.ClaimRepository;
 import com.claim.demo.service.ClaimCacheService;
-import com.claim.demo.service.ClaimStatusEventPublisher;
+import com.claim.demo.domain.ClaimStatus;
+import com.claim.demo.service.ClaimService;
+import com.claim.demo.service.ClaimStatusOutboxRelay;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.flywaydb.core.Flyway;
@@ -14,11 +16,17 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.kafka.KafkaException;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -28,10 +36,15 @@ import java.sql.Connection;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -81,8 +94,17 @@ class ClaimsPostgresIntegrationTest {
     @MockBean
     private ClaimCacheService claimCacheService;
 
+    @Autowired
+    private ClaimService claimService;
+
+    @Autowired
+    private ClaimStatusOutboxRelay outboxRelay;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
     @MockBean
-    private ClaimStatusEventPublisher eventPublisher;
+    private KafkaTemplate<String, Object> kafkaTemplate;
 
     @MockBean
     private JavaMailSender javaMailSender;
@@ -90,6 +112,7 @@ class ClaimsPostgresIntegrationTest {
     @BeforeEach
     void resetDatabase() {
         jdbcTemplate.update("DELETE FROM processed_kafka_events");
+        jdbcTemplate.update("DELETE FROM claim_status_outbox");
         jdbcTemplate.update("DELETE FROM claim_status_history");
         jdbcTemplate.update("DELETE FROM claims");
         jdbcTemplate.update("DELETE FROM users");
@@ -113,7 +136,7 @@ class ClaimsPostgresIntegrationTest {
                 """, Integer.class);
 
         assertThat(product).isEqualTo("PostgreSQL");
-        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("6");
+        assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("8");
         assertThat(indexCount).isEqualTo(1);
     }
 
@@ -242,7 +265,67 @@ class ClaimsPostgresIntegrationTest {
         assertThat(jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM claim_status_history WHERE claim_id = ?", Long.class, claimId))
                 .isEqualTo(3);
-        verify(eventPublisher, times(3)).publishAfterCommit(org.mockito.ArgumentMatchers.any());
+        // Each committed transition left exactly one unpublished event in the outbox, in order.
+        assertThat(jdbcTemplate.queryForList("""
+                SELECT previous_status || '->' || new_status
+                FROM claim_status_outbox
+                WHERE claim_id = ? AND published_at IS NULL
+                ORDER BY id
+                """, String.class, claimId))
+                .containsExactly("DRAFT->SUBMITTED", "SUBMITTED->UNDER_REVIEW", "UNDER_REVIEW->APPROVED");
+    }
+
+    @Test
+    void relayPublishesCommittedOutboxEventsAndRetriesAfterBrokerFailure() {
+        insertClaim(301, "2026-01-02T10:00:00", "80.00", "AUTO", "UNDER_REVIEW", "create-301", "submit-301");
+        claimService.transitionClaimStatus(301L, ClaimStatus.APPROVED, "officer", null);
+
+        when(kafkaTemplate.send(eq("claims.status.v1"), eq("301"), any()))
+                .thenReturn(CompletableFuture.failedFuture(new KafkaException("broker unavailable")));
+        assertThat(outboxRelay.publishPendingBatch()).isZero();
+        assertThat(jdbcTemplate.queryForMap(
+                "SELECT attempts, last_error, published_at FROM claim_status_outbox WHERE claim_id = 301"))
+                .containsEntry("attempts", 1)
+                .containsEntry("last_error", "broker unavailable")
+                .containsEntry("published_at", null);
+
+        reset(kafkaTemplate);
+        when(kafkaTemplate.send(eq("claims.status.v1"), eq("301"), any()))
+                .thenReturn(CompletableFuture.completedFuture(null));
+        assertThat(outboxRelay.publishPendingBatch()).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM claim_status_outbox WHERE published_at IS NOT NULL AND attempts = 2",
+                Long.class)).isEqualTo(1);
+
+        assertThat(outboxRelay.publishPendingBatch()).isZero();
+        verify(kafkaTemplate, times(1)).send(anyString(), anyString(), any());
+    }
+
+    @Test
+    void staleConcurrentDecisionIsRejectedWithoutHistoryOrEvent() {
+        insertClaim(302, "2026-01-02T10:00:00", "90.00", "HOME", "UNDER_REVIEW", "create-302", "submit-302");
+        TransactionTemplate officerB = new TransactionTemplate(transactionManager);
+        TransactionTemplate officerA = new TransactionTemplate(transactionManager);
+        officerA.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+
+        // Officer B reads the claim, officer A approves and commits, then B's rejection
+        // is applied to the stale copy it read before A's change.
+        assertThatThrownBy(() -> officerB.executeWithoutResult(status -> {
+            claimRepository.findById(302L).orElseThrow();
+            officerA.executeWithoutResult(inner ->
+                    claimService.transitionClaimStatus(302L, ClaimStatus.APPROVED, "officer-a", null));
+            claimService.transitionClaimStatus(302L, ClaimStatus.REJECTED, "officer-b", "Stale decision");
+        })).isInstanceOf(OptimisticLockingFailureException.class);
+
+        assertThat(jdbcTemplate.queryForMap("SELECT claim_status, version FROM claims WHERE claim_id = 302"))
+                .containsEntry("claim_status", "APPROVED")
+                .containsEntry("version", 1L);
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT changed_by FROM claim_status_history WHERE claim_id = 302", String.class))
+                .containsExactly("officer-a");
+        assertThat(jdbcTemplate.queryForList(
+                "SELECT new_status FROM claim_status_outbox WHERE claim_id = 302", String.class))
+                .containsExactly("APPROVED");
     }
 
     private void insertUser(long userId, String username, String email, String role) {

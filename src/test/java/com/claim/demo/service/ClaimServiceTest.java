@@ -49,7 +49,7 @@ class ClaimServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private ClaimStatusEventPublisher claimStatusEventPublisher;
+    private ClaimStatusOutbox claimStatusOutbox;
 
     @Mock
     private ClaimCacheService claimCacheService;
@@ -108,7 +108,7 @@ class ClaimServiceTest {
         assertNotNull(history.getChangedAt());
 
         ArgumentCaptor<ClaimStatusEvent> eventCaptor = ArgumentCaptor.forClass(ClaimStatusEvent.class);
-        verify(claimStatusEventPublisher).publishAfterCommit(eventCaptor.capture());
+        verify(claimStatusOutbox).enqueue(eventCaptor.capture());
         ClaimStatusEvent event = eventCaptor.getValue();
         assertNotNull(event.eventId());
         assertEquals(7L, event.claimId());
@@ -144,7 +144,7 @@ class ClaimServiceTest {
         assertEquals(ClaimStatus.DRAFT, claim.getClaimStatus());
         verify(claimRepository, never()).save(any(Claim.class));
         verify(claimStatusHistoryRepository, never()).save(any(ClaimStatusHistory.class));
-        verify(claimStatusEventPublisher, never()).publishAfterCommit(any(ClaimStatusEvent.class));
+        verify(claimStatusOutbox, never()).enqueue(any(ClaimStatusEvent.class));
     }
 
     @Test
@@ -370,7 +370,7 @@ class ClaimServiceTest {
         verify(claimStatusHistoryRepository).save(any(ClaimStatusHistory.class));
         verify(claimCacheService).evictClaimAfterCommit(4L);
         ArgumentCaptor<ClaimStatusEvent> eventCaptor = ArgumentCaptor.forClass(ClaimStatusEvent.class);
-        verify(claimStatusEventPublisher).publishAfterCommit(eventCaptor.capture());
+        verify(claimStatusOutbox).enqueue(eventCaptor.capture());
         assertEquals("user@example.com", eventCaptor.getValue().userEmail());
     }
 

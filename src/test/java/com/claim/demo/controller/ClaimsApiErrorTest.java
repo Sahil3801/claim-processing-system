@@ -16,6 +16,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
@@ -103,6 +104,18 @@ class ClaimsApiErrorTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value("INVALID_CLAIM_TRANSITION"))
                 .andExpect(jsonPath("$.path").value("/api/claims/12/submit"));
+    }
+
+    @Test
+    void returnsConflictWhenAnotherOfficerChangedTheClaimFirst() throws Exception {
+        Principal principal = () -> "officer";
+        when(claimService.transitionClaimStatus(12L, ClaimStatus.APPROVED, "officer", null))
+                .thenThrow(new ObjectOptimisticLockingFailureException("Claim", 12L));
+
+        mockMvc.perform(post("/api/claims/12/approve").principal(principal))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("CONCURRENT_CLAIM_UPDATE"))
+                .andExpect(jsonPath("$.path").value("/api/claims/12/approve"));
     }
 
     @Test

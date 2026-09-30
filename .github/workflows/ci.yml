@@ -37,6 +37,17 @@ jobs:
       - name: Verify backend
         run: ./mvnw -B -ntp verify
 
+      # Testcontainers skips instead of failing when Docker is unreachable; a green build must
+      # include the real PostgreSQL migration, constraint, outbox, and concurrency tests.
+      - name: Require PostgreSQL integration tests to run
+        run: |
+          report=target/surefire-reports/TEST-com.claim.demo.integration.ClaimsPostgresIntegrationTest.xml
+          test -f "$report"
+          if ! head -n 2 "$report" | grep -q ' skipped="0"'; then
+            echo "::error::PostgreSQL integration tests were skipped; check Docker/Testcontainers."
+            exit 1
+          fi
+
   frontend:
     name: Frontend test and build
     runs-on: ubuntu-latest

@@ -12,10 +12,10 @@ The prepared AWS topology is not evidence of an actual cloud deployment.
 | React/TypeScript client | Login/register, claimant/officer screens, admin reports, loading/errors and navigation | [frontend/src](../frontend/src) |
 | Security filter chain | Verify JWT; load active user and current role; gate routes | [SecurityConfig](../src/main/java/com/claim/demo/config/SecurityConfig.java), [JwtAuthenticationFilter](../src/main/java/com/claim/demo/filter/JwtAuthenticationFilter.java) |
 | Controllers/DTOs | JSON boundaries, Bean Validation, pagination, error mapping | [controller](../src/main/java/com/claim/demo/controller), [dto](../src/main/java/com/claim/demo/dto) |
-| Claim service/domain | Ownership, idempotent create/submit, lifecycle, history, after-commit callbacks | [ClaimService](../src/main/java/com/claim/demo/service/ClaimService.java), [ClaimStatus](../src/main/java/com/claim/demo/domain/ClaimStatus.java) |
+| Claim service/domain | Ownership, idempotent create/submit, lifecycle, history, outbox events, optimistic versioning | [ClaimService](../src/main/java/com/claim/demo/service/ClaimService.java), [ClaimStatus](../src/main/java/com/claim/demo/domain/ClaimStatus.java) |
 | JPA/Flyway/PostgreSQL | Authoritative records, constraints, row locks, native aggregate projections | [ClaimRepository](../src/main/java/com/claim/demo/repository/ClaimRepository.java), [migrations](../src/main/resources/db/migration) |
 | Redis facade | Best-effort detail/status cache, TTLs, deferred eviction | [ClaimCacheService](../src/main/java/com/claim/demo/service/ClaimCacheService.java) |
-| Kafka producer/consumer | Post-commit status notification, retries/DLT, processed-event markers | [publisher](../src/main/java/com/claim/demo/service/ClaimStatusEventPublisher.java), [consumer](../src/main/java/com/claim/demo/service/ClaimStatusEventConsumer.java) |
+| Kafka outbox/consumer | Transactional outbox relay, retries/DLT, processed-event markers | [outbox](../src/main/java/com/claim/demo/service/ClaimStatusOutbox.java), [relay](../src/main/java/com/claim/demo/service/ClaimStatusOutboxRelay.java), [consumer](../src/main/java/com/claim/demo/service/ClaimStatusEventConsumer.java) |
 | Report service | Live overall/status/type/date summaries, DTO mapping | [ReportService](../src/main/java/com/claim/demo/service/ReportService.java) |
 | Hourly batch | Move submitted claims older than 24 hours to review as SYSTEM_BATCH | [ClaimBatchService](../src/main/java/com/claim/demo/service/ClaimBatchService.java) |
 
@@ -42,7 +42,7 @@ status, timestamps, and separate nullable unique creation/submission keys.
 History stores old/new status, actor, reason, and a time-zone-aware timestamp.
 The actor is a string, allowing the `SYSTEM_BATCH` identity; it is not a user FK.
 
-Flyway V1-V6 define/extend the schema. Hibernate validates mappings rather than
+Flyway V1-V8 define/extend the schema. Hibernate validates mappings rather than
 owning DDL. Positive amount, allowed statuses/roles, identity/foreign keys, and
 unique keys are database-enforced. The allowed transition **edges**, rejection
 reason requirement, and ownership are application/API rules, not SQL triggers.
@@ -106,9 +106,11 @@ Limitations:
 - Cross-operation checks span two columns without a combined database-wide
   uniqueness constraint. Do not promise that simultaneous creation/submission
   on different locked rows cannot race on key reuse.
-- Review/approve/reject/settle read without an explicit row lock or optimistic
-  version check. Their legal-edge checks do not prevent every lost update or
-  conflicting concurrent decision. Submission locks do not solve that gap.
+- Review/approve/reject/settle rely on the claim's JPA `@Version` (V7). When two
+  transactions change the same claim, the later commit fails, rolls back its
+  history and outbox rows, and returns 409 `CONCURRENT_CLAIM_UPDATE`. The version
+  is not exposed to clients, so a decision based on an old screen is only caught
+  if another write commits while that request is in flight.
 
 ## Read and authorization flow
 
@@ -170,8 +172,10 @@ health to avoid treating an optional cache as readiness-critical.
 The status event includes a UUID event ID, claim ID, previous/new status, actor,
 user ID/email, and occurrence time. `claims.status.v1` is the default topic;
 `claims.status.v1.dlt` is its dead-letter topic. Both topic names are configurable.
-The claim ID is the record key for partition routing. Kafka partition order does
-not independently enforce database transition order under concurrent updates.
+The claim ID is the record key for partition routing. Events are written to the
+V8 `claim_status_outbox` table in the claim transaction and relayed in insertion
+order; optimistic versioning ensures only one concurrent transition per claim
+commits, so outbox order matches the committed transition order.
 
 The producer enables idempotence, all-replica acknowledgments, 10 retries, and
 a 120-second delivery timeout. Default provisioning uses one partition and one
@@ -191,18 +195,21 @@ against ordinary duplicate deliveries, not all external-side-effect failures.
 
 | Failure point | Current behavior / limit |
 | --- | --- |
-| Claim transaction rolls back | No status event is published by its callback |
-| Process dies after DB commit, before Kafka send | Event can be lost; no durable outbox/reconciler |
-| Producer exhausts delivery attempts | Logs failure; committed claim remains successful |
+| Claim transaction rolls back | Its outbox row rolls back too; nothing is published |
+| Process dies after DB commit, before Kafka send | Event stays in the outbox; the next relay poll sends it |
+| Kafka unavailable or send times out | Relay records the error, stops the batch, retries on the next poll |
+| Relay dies after Kafka send, before marking published | Event is re-sent; the consumer skips the duplicate event ID |
 | SMTP throws | Consumer transaction rolls back; listener retry/DLT applies |
 | SMTP succeeds, process dies before marker commit | Redelivery may send duplicate email |
 | Committed event ID is redelivered | Consumer skips its side effect |
 | Kafka host/volume is lost | Single-node deployment cannot guarantee event recovery |
 
-Thus the system is not end-to-end exactly-once and not guaranteed at-least-once
-from PostgreSQL commit to email. A future outbox could close the first gap;
-provider-side idempotency/durable notification delivery would address the second.
-Neither is implemented here. Event-marker cleanup/retention is also not automated.
+Thus delivery from PostgreSQL commit to Kafka is at-least-once, but the system is
+not end-to-end exactly-once: provider-side idempotency or durable notification
+delivery would be needed for email. Published outbox rows are deleted after the
+configured retention (default seven days); consumer event-marker cleanup is not
+automated. The relay polls every second, so notifications can lag a transition by
+about that interval.
 
 ### Legacy notification boundary
 
@@ -264,6 +271,6 @@ and CPU pressure are measured; separate serialization/JVM/network overhead is
 not. See the report rather than extrapolating local measurements to EC2/RDS.
 
 Before any public rollout, review legacy endpoints/configuration/dependencies,
-concurrent transition behavior, outbox/SMTP recovery, authentication storage and
+client-side version checks, SMTP recovery, authentication storage and
 rate limiting, CORS/frontend hosting, backup restoration, and observability.
 These are explicit gaps, not Phase 17 implementation work or deployment claims.

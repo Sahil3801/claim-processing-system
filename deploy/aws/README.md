@@ -218,8 +218,8 @@ The notification listener is enabled by default. Leaving SMTP credentials blank
 does not disable it; delivery failures retry and can reach `claims.status.v1.dlt`.
 Configure a working mail provider or explicitly disable the listener through an
 app environment override when email delivery is out of scope. Claim commits are
-not rolled back by notification failures, but there is no durable outbox or
-exactly-once email guarantee. Review the
+not rolled back by notification failures. Events wait in the PostgreSQL outbox
+while Kafka is unavailable, but there is no exactly-once email guarantee. Review the
 [architecture boundaries](../../docs/architecture.md) before relying on delivery.
 
 ## 6. Verify
