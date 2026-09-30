@@ -14,11 +14,11 @@ export function AppShell() {
         <nav className="sidebar-nav">
           {session.role === 'CLAIMANT' && <>
             <NavLink className={navClass} to="/dashboard">Overview</NavLink>
-            <NavLink className={navClass} to="/claims">My claims</NavLink>
+            <NavLink className={navClass} to="/claims" end>My claims</NavLink>
             <NavLink className={navClass} to="/claims/new">Create claim</NavLink>
           </>}
           {(session.role === 'CLAIMS_OFFICER' || session.role === 'ADMIN') && <>
-            <NavLink className={navClass} to="/officer">Officer dashboard</NavLink>
+            <NavLink className={navClass} to="/officer" end>Officer dashboard</NavLink>
             <NavLink className={navClass} to="/officer/claims">Claims queue</NavLink>
           </>}
           {session.role === 'ADMIN' && <NavLink className={navClass} to="/reports">Reporting</NavLink>}
