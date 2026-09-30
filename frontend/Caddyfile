@@ -1,0 +1,25 @@
+# Serves the React build and forwards /api to the backend, so the browser only ever talks to
+# one origin (no CORS). BACKEND_URL is the backend's private Railway address.
+{
+	admin off
+}
+
+:{$PORT:8080} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy {$BACKEND_URL}
+	}
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+	}
+}

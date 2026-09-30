@@ -21,6 +21,7 @@ been established by the repository's benchmark evidence**.
 - [Frontend development](frontend/README.md)
 - [GitHub Actions and deployment permissions](.github/CI-CD.md)
 - [Manual AWS deployment preparation/runbook](deploy/aws/README.md)
+- [Railway demo deployment (no Kafka)](deploy/railway/README.md)
 - [Benchmark methodology and commands](benchmarks/README.md)
 - [Final measured 100K-claim performance report](benchmarks/analysis/20260831T045941Z.md)
 
