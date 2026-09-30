@@ -34,6 +34,11 @@ api.interceptors.response.use(
   },
 );
 
+/** Machine-readable error code from the API error envelope, such as CONCURRENT_CLAIM_UPDATE. */
+export function errorCode(error: unknown): string | undefined {
+  return axios.isAxiosError<ApiErrorResponse>(error) ? error.response?.data?.error : undefined;
+}
+
 export function errorMessage(error: unknown): string {
   if (!axios.isAxiosError<ApiErrorResponse>(error)) return 'Something went wrong. Please try again.';
   const body = error.response?.data;

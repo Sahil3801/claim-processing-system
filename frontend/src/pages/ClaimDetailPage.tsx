@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { getClaim, submitClaim, transitionClaim } from '../api/claims';
-import { errorMessage } from '../api/client';
+import { errorCode, errorMessage } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert, LoadingState } from '../components/Feedback';
 import { readableStatus, StatusBadge } from '../components/StatusBadge';
 import type { Claim, ClaimStatus } from '../types';
 import { formatCurrency, formatDate } from '../utils';
+
+// Another user changed the claim first: its status moved on, or a concurrent write won.
+const staleClaimErrors = new Set(['CONCURRENT_CLAIM_UPDATE', 'INVALID_CLAIM_TRANSITION']);
 
 const standardPath: ClaimStatus[] = ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'SETTLED'];
 
@@ -34,6 +37,7 @@ export function ClaimDetailPage() {
   const [claim, setClaim] = useState<Claim | null>(null);
   const [error, setError] = useState('');
   const [actionError, setActionError] = useState('');
+  const [staleNotice, setStaleNotice] = useState('');
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [showReject, setShowReject] = useState(false);
@@ -50,14 +54,25 @@ export function ClaimDetailPage() {
 
   async function runAction(action: 'submit' | 'review' | 'approve' | 'reject' | 'settle') {
     if (!claim) return;
-    setActing(true); setActionError('');
+    setActing(true); setActionError(''); setStaleNotice('');
     try {
       const updated = action === 'submit'
         ? await submitClaim(claim.claimId)
         : await transitionClaim(claim.claimId, action, action === 'reject' ? reason.trim() : undefined);
       setClaim(updated); setShowReject(false); setReason('');
-    } catch (requestError) { setActionError(errorMessage(requestError)); }
+    } catch (requestError) {
+      if (staleClaimErrors.has(errorCode(requestError) ?? '')) await refreshAfterConflict(claim.claimId);
+      else setActionError(errorMessage(requestError));
+    }
     finally { setActing(false); }
+  }
+
+  async function refreshAfterConflict(claimId: number) {
+    try {
+      const latest = await getClaim(claimId);
+      setClaim(latest); setShowReject(false);
+      setStaleNotice(`Another user updated this claim while you were working. It is now ${readableStatus(latest.claimStatus)}; review the latest details before taking further action.`);
+    } catch (requestError) { setActionError(errorMessage(requestError)); }
   }
 
   const isClaimant = session?.role === 'CLAIMANT';
@@ -78,6 +93,7 @@ export function ClaimDetailPage() {
             <div><dt>Last updated</dt><dd>{formatDate(claim.lastUpdated)}</dd></div>
           </dl>
           <div className="description-block"><h3>Description</h3><p>{claim.description}</p></div>
+          {staleNotice && <div className="alert alert-warning" role="status">{staleNotice}</div>}
           {actionError && <ErrorAlert message={actionError} />}
           <div className="action-bar">
             {isClaimant && claim.claimStatus === 'DRAFT' && <button className="button button-primary" disabled={acting} onClick={() => void runAction('submit')}>{acting ? 'Submitting…' : 'Submit claim'}</button>}

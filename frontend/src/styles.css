@@ -110,6 +110,7 @@ textarea { resize: vertical; line-height: 1.5; }
 .alert { display: flex; gap: 1rem; align-items: center; justify-content: space-between; padding: .8rem 1rem; border-radius: 8px; font-size: .84rem; }
 .alert-error { color: #852f2f; background: #fcebea; border: 1px solid #f3cccc; }
 .alert-success { color: #195c43; background: #e7f5ee; border: 1px solid #c8e7d9; }
+.alert-warning { color: #6b4a0f; background: #fdf4e3; border: 1px solid #f1dcb0; }
 
 .detail-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(290px, .75fr); gap: 1.2rem; align-items: start; }
 .detail-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0; margin: 0; }
