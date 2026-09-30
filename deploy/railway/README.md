@@ -10,7 +10,7 @@ transactional outbox table, but the relay and email consumer are off. Use the
 browser --HTTPS--> frontend (Caddy: React build + /api proxy)
                         |  private network
                         v
-                   backend (Spring Boot, profiles production,railway)
+                   backend (Spring Boot, profiles production,demo)
                      /            \
                Postgres          Redis
 ```
@@ -35,7 +35,7 @@ billing settings before deploying.
 3. Variables (use **Raw Editor**; `${{...}}` are Railway references):
 
    ```text
-   SPRING_PROFILES_ACTIVE=production,railway
+   SPRING_PROFILES_ACTIVE=production,demo
    PORT=8080
    DB_HOST=${{Postgres.PGHOST}}
    DB_PORT=${{Postgres.PGPORT}}

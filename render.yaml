@@ -1,0 +1,30 @@
+# Render Blueprint for the free public demo API. The database is Neon (free PostgreSQL) and the
+# frontend is Vercel; see deploy/render/README.md.
+services:
+  - type: web
+    name: claims-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health
+    autoDeploy: true
+    buildFilter:
+      paths:
+        - src/**
+        - pom.xml
+        - Dockerfile
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: production,demo
+      - key: DB_JDBC_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      # Fits the free instance's 512 MB and speeds startup on its small CPU share.
+      - key: JAVA_TOOL_OPTIONS
+        value: -Xmx256m -XX:MaxMetaspaceSize=160m -Xss512k -XX:+UseSerialGC -XX:TieredStopAtLevel=1
