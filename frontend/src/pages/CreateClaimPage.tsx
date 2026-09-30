@@ -4,6 +4,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { createClaim } from '../api/claims';
 import { errorMessage } from '../api/client';
 import { ErrorAlert } from '../components/Feedback';
+import { PageHeader } from '../components/PageHeader';
+
+// Suggestions only: claim type stays free text, exactly as the API accepts it.
+const typeSuggestions = ['Medical', 'Auto', 'Home', 'Travel', 'Life'];
+const DESCRIPTION_MAX = 2000;
 
 export function CreateClaimPage() {
   const navigate = useNavigate();
@@ -25,14 +30,42 @@ export function CreateClaimPage() {
 
   return (
     <div className="page-stack narrow-page">
-      <header className="page-header"><div><p className="eyebrow">New claim</p><h1>Tell us what happened</h1><p>Create a draft now. You can review it before submission.</p></div></header>
-      <form className="card form-grid" onSubmit={handleSubmit}>
-        {error && <div className="form-span"><ErrorAlert message={error} /></div>}
-        <label>Claim type<input required maxLength={100} placeholder="e.g. Medical" value={form.claimType} onChange={(e) => setForm({ ...form, claimType: e.target.value })} /></label>
-        <label>Claim amount<input required min="0.01" step="0.01" type="number" placeholder="0.00" value={form.claimAmount} onChange={(e) => setForm({ ...form, claimAmount: e.target.value })} /></label>
-        <label>Email for updates<span className="field-help">Optional</span><input type="email" maxLength={255} value={form.emailId} onChange={(e) => setForm({ ...form, emailId: e.target.value })} /></label>
-        <label className="form-span">Description<textarea required maxLength={2000} rows={6} placeholder="Describe the incident and relevant details…" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /><span className="field-help field-count">{form.description.length}/2000</span></label>
-        <div className="form-actions form-span"><Link className="button button-secondary" to="/claims">Cancel</Link><button className="button button-primary" disabled={loading}>{loading ? 'Creating…' : 'Create draft'}</button></div>
+      <PageHeader crumbs={[{ label: 'My claims', to: '/claims' }, { label: 'New claim' }]} title="New claim" description="This saves a draft. You can check it before submitting it for review." />
+      <form className="panel form-panel" onSubmit={handleSubmit} noValidate={false}>
+        {error && <ErrorAlert message={error} />}
+        <div className="form-section"><fieldset className="form-fieldset">
+          <legend>Claim</legend>
+          <div className="form-grid">
+            <div className="field">
+              <label className="field-label" htmlFor="claim-type">Claim type<span className="required-mark" aria-hidden="true">*</span></label>
+              <input id="claim-type" required maxLength={100} list="claim-type-suggestions" autoComplete="off" aria-describedby="claim-type-help" value={form.claimType} onChange={(e) => setForm({ ...form, claimType: e.target.value })} />
+              <span className="field-help" id="claim-type-help">For example Medical, Auto or Home.</span>
+            </div>
+            <datalist id="claim-type-suggestions">{typeSuggestions.map((type) => <option key={type} value={type} />)}</datalist>
+            <div className="field">
+              <label className="field-label" htmlFor="claim-amount">Claim amount<span className="required-mark" aria-hidden="true">*</span></label>
+              <span className="input-affix"><span className="input-prefix" aria-hidden="true">$</span><input id="claim-amount" required min="0.01" step="0.01" type="number" inputMode="decimal" placeholder="0.00" aria-describedby="claim-amount-help" value={form.claimAmount} onChange={(e) => setForm({ ...form, claimAmount: e.target.value })} /></span>
+              <span className="field-help" id="claim-amount-help">In US dollars, up to two decimal places.</span>
+            </div>
+          </div>
+          <div className="field">
+            <label className="field-label" htmlFor="claim-description">Description<span className="required-mark" aria-hidden="true">*</span></label>
+            <textarea id="claim-description" required maxLength={DESCRIPTION_MAX} rows={7} placeholder="What happened, when, and what it cost. Include any reference numbers." aria-describedby="claim-description-count" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <span className={`field-count${form.description.length > DESCRIPTION_MAX - 100 ? ' field-count-near' : ''}`} id="claim-description-count">{form.description.length}/{DESCRIPTION_MAX} characters</span>
+          </div>
+        </fieldset></div>
+        <div className="form-section"><fieldset className="form-fieldset">
+          <legend>Contact</legend>
+          <div className="field field-half">
+            <label className="field-label" htmlFor="claim-email">Email for updates<span className="field-optional">Optional</span></label>
+            <input id="claim-email" type="email" maxLength={255} autoComplete="email" aria-describedby="claim-email-help" value={form.emailId} onChange={(e) => setForm({ ...form, emailId: e.target.value })} />
+            <span className="field-help" id="claim-email-help">Leave blank to use your account email.</span>
+          </div>
+        </fieldset></div>
+        <div className="form-footer">
+          <span className="field-help"><span aria-hidden="true">*</span> Required</span>
+          <div className="form-actions"><Link className="button button-secondary" to="/claims">Cancel</Link><button className="button button-primary" disabled={loading}>{loading ? 'Saving draft…' : 'Save draft'}</button></div>
+        </div>
       </form>
     </div>
   );

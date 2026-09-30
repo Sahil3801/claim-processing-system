@@ -5,5 +5,5 @@ export function readableStatus(status: ClaimStatus): string {
 }
 
 export function StatusBadge({ status }: { status: ClaimStatus }) {
-  return <span className={`status status-${status.toLowerCase()}`}>{readableStatus(status)}</span>;
+  return <span className={`status status-${status.toLowerCase()}`}><span className="status-dot" aria-hidden="true" />{readableStatus(status)}</span>;
 }

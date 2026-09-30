@@ -4,6 +4,7 @@ import { getClaims } from '../api/claims';
 import { errorMessage } from '../api/client';
 import { ClaimTable } from '../components/ClaimTable';
 import { ErrorAlert, LoadingState } from '../components/Feedback';
+import { PageHeader } from '../components/PageHeader';
 import type { Claim, ClaimStatus } from '../types';
 
 interface QueueData { submitted: number; review: number; approved: number; recent: Claim[] }
@@ -23,11 +24,18 @@ export function OfficerDashboard() {
 
   return (
     <div className="page-stack">
-      <header className="page-header"><div><p className="eyebrow">Claims operations</p><h1>Review queue</h1><p>Prioritize new submissions and move active claims forward.</p></div><Link className="button button-primary" to="/officer/claims">Open full queue</Link></header>
+      <PageHeader title="Officer dashboard" description="Work through new submissions oldest first, and keep active claims moving." actions={<Link className="button button-primary" to="/officer/claims">Open claims queue</Link>} />
       {error && <ErrorAlert message={error} onRetry={load} />}
       {!data && !error ? <LoadingState label="Loading operations dashboard" /> : data && <>
-        <section className="stat-grid"><article className="stat-card accent"><span>Awaiting review</span><strong>{data.submitted}</strong><small>New submissions</small></article><article className="stat-card"><span>Under review</span><strong>{data.review}</strong><small>Active assessments</small></article><article className="stat-card"><span>Ready to settle</span><strong>{data.approved}</strong><small>Approved claims</small></article></section>
-        <section className="card"><div className="section-heading"><div><h2>Oldest new submissions</h2><p>Start with claims waiting longest.</p></div><Link to="/officer/claims">View queue</Link></div><ClaimTable claims={data.recent} showClaimant /></section>
+        <section className="metric-strip" aria-label="Queue summary">
+          <div className="metric metric-emphasis"><span className="metric-label">Awaiting review</span><strong className="metric-value">{data.submitted}</strong><small className="metric-note">Submitted, not yet picked up</small></div>
+          <div className="metric"><span className="metric-label">Under review</span><strong className="metric-value">{data.review}</strong><small className="metric-note">Waiting for a decision</small></div>
+          <div className="metric"><span className="metric-label">Ready to settle</span><strong className="metric-value">{data.approved}</strong><small className="metric-note">Approved, not yet settled</small></div>
+        </section>
+        <section className="panel">
+          <div className="panel-header"><div><h2>Oldest new submissions</h2><p>The five claims that have waited longest for review.</p></div><Link className="panel-link" to="/officer/claims">View full queue</Link></div>
+          <ClaimTable claims={data.recent} showClaimant empty={{ title: 'Queue is clear', message: 'No submitted claims are waiting for review.' }} />
+        </section>
       </>}
     </div>
   );

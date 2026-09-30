@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { claimStatuses, getClaims, getMyClaims } from '../api/claims';
 import { errorMessage } from '../api/client';
 import { ClaimTable } from '../components/ClaimTable';
 import { ErrorAlert, LoadingState } from '../components/Feedback';
+import { PageHeader } from '../components/PageHeader';
 import { Pagination } from '../components/Pagination';
 import { readableStatus } from '../components/StatusBadge';
 import type { Claim, ClaimStatus, PageResponse } from '../types';
@@ -28,18 +30,35 @@ export function ClaimsListPage({ pendingOnly = false }: { pendingOnly?: boolean 
   }, [page, status, claimType, userId, isClaimant]);
   useEffect(() => { void load(); }, [load]);
 
+  const filtersChanged = status !== (pendingOnly ? 'SUBMITTED' : '') || claimType !== '' || userId !== '';
   return (
     <div className="page-stack">
-      <header className="page-header"><div><p className="eyebrow">{isClaimant ? 'Claim history' : 'Operations queue'}</p><h1>{pendingOnly ? 'Pending claims' : isClaimant ? 'My claims' : 'All claims'}</h1><p>Filter and open a claim to see the full record.</p></div></header>
-      {!isClaimant && <section className="card filters" aria-label="Claim filters">
-        <label>Status<select value={status} onChange={(e) => { setStatus(e.target.value as ClaimStatus | ''); setPage(0); }}><option value="">All statuses</option>{claimStatuses.map((item) => <option key={item} value={item}>{readableStatus(item)}</option>)}</select></label>
-        <label>Claim type<input placeholder="Filter by type" value={claimType} onChange={(e) => { setClaimType(e.target.value); setPage(0); }} /></label>
-        <label>Claimant ID<input min="1" type="number" placeholder="Any claimant" value={userId} onChange={(e) => { setUserId(e.target.value); setPage(0); }} /></label>
-        <button className="button button-secondary filter-reset" type="button" onClick={() => { setStatus(pendingOnly ? 'SUBMITTED' : ''); setClaimType(''); setUserId(''); setPage(0); }}>Reset</button>
-      </section>}
+      <PageHeader
+        title={pendingOnly ? 'Claims queue' : isClaimant ? 'My claims' : 'All claims'}
+        description={isClaimant ? 'Every claim you have created, newest first.' : 'Open a claim to review its details and move it to the next step.'}
+        actions={isClaimant ? <Link className="button button-primary" to="/claims/new">Create claim</Link> : undefined}
+      />
       {error && <ErrorAlert message={error} onRetry={load} />}
-      <section className="card">
-        {loading ? <LoadingState label="Loading claims" /> : data && <><div className="section-heading"><div><h2>{data.totalElements} claim{data.totalElements === 1 ? '' : 's'}</h2><p>Showing up to {data.size} results per page.</p></div></div><ClaimTable claims={data.content} showClaimant={!isClaimant} /><Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} /></>}
+      <section className="panel" aria-label="Claims">
+        {!isClaimant && <div className="toolbar" role="search" aria-label="Filter claims">
+          <label className="toolbar-field">Status<select value={status} onChange={(e) => { setStatus(e.target.value as ClaimStatus | ''); setPage(0); }}><option value="">All statuses</option>{claimStatuses.map((item) => <option key={item} value={item}>{readableStatus(item)}</option>)}</select></label>
+          <label className="toolbar-field">Claim type<input placeholder="Any type" value={claimType} onChange={(e) => { setClaimType(e.target.value); setPage(0); }} /></label>
+          <label className="toolbar-field toolbar-field-narrow">Claimant ID<input min="1" type="number" inputMode="numeric" placeholder="Any" value={userId} onChange={(e) => { setUserId(e.target.value); setPage(0); }} /></label>
+          <button className="button button-ghost button-small toolbar-reset" type="button" disabled={!filtersChanged} onClick={() => { setStatus(pendingOnly ? 'SUBMITTED' : ''); setClaimType(''); setUserId(''); setPage(0); }}>Reset filters</button>
+        </div>}
+        <div className="panel-subheader" aria-live="polite">
+          {data && !loading ? <span><strong>{data.totalElements}</strong> claim{data.totalElements === 1 ? '' : 's'}{!isClaimant && filtersChanged ? ' match these filters' : ''}</span> : <span>&nbsp;</span>}
+        </div>
+        {loading ? <LoadingState label="Loading claims" /> : data && <>
+          <ClaimTable
+            claims={data.content}
+            showClaimant={!isClaimant}
+            empty={isClaimant
+              ? { title: 'No claims yet', message: 'Claims you create will appear here.', action: <Link className="button button-primary button-small" to="/claims/new">Create claim</Link> }
+              : { title: 'No claims match', message: filtersChanged ? 'Try a different status or clear the filters.' : 'There is nothing waiting in this queue.' }}
+          />
+          <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} pageSize={data.size} totalElements={data.totalElements} />
+        </>}
       </section>
     </div>
   );
