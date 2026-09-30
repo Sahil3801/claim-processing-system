@@ -176,7 +176,7 @@ Protected calls use `Authorization: Bearer <token>`.
 | --- | --- | --- |
 | `POST /api/auth/register` | Public | Username, password, email; creates claimant; 201 |
 | `POST /api/auth/login` | Public | Username/password; returns username + JWT; 200 |
-| `POST /api/claims` | Claimant | Own user ID; required `Idempotency-Key`; draft DTO; 201 |
+| `POST /api/claims` | Claimant | Optional own user ID (defaults to the caller); required `Idempotency-Key`; draft DTO; 201 |
 | `POST /api/claims/{id}/submit` | Owning claimant | Required distinct `Idempotency-Key`; 200 |
 | `GET /api/claims/{id}` | Owner, officer, admin | Detail DTO including current status |
 | `GET /api/claims/my` | Claimant | Own claims; paginated |
@@ -201,7 +201,8 @@ Pagination is zero-based: `page`, `size` (default 20), and `sort` (default
 trimmed/case-insensitive. Claim type is a required string, not a fixed backend
 enum; UI examples include medical, auto, home, travel, and life.
 
-Create requests require an existing positive `userId`, positive `claimAmount`
+Create requests take an optional positive `userId` (omitted, it defaults to the
+authenticated claimant; supplied, it must be theirs), a positive `claimAmount`
 with up to 17 integer digits and 2 fractional digits, nonblank `claimType`
 (maximum 100), and nonblank `description` (maximum 2,000). `emailId` is optional
 but must be valid if supplied. The user ID must belong to the authenticated

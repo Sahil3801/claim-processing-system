@@ -250,6 +250,40 @@ class ClaimServiceTest {
     }
 
     @Test
+    void createsClaimForAuthenticatedClaimantWhenUserIdIsOmitted() {
+        User owner = user(7L, "owner");
+        ClaimCreateRequest request = new ClaimCreateRequest(
+                null, new BigDecimal("100.00"), "MEDICAL", "Treatment", null);
+        when(userRepository.findByUsername("owner")).thenReturn(owner);
+        when(userRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(owner));
+        when(claimRepository.save(any(Claim.class))).thenAnswer(invocation -> {
+            Claim saved = invocation.getArgument(0);
+            saved.setClaimId(23L);
+            return saved;
+        });
+
+        ClaimDTO result = claimService.createClaimForClaimant(request, "owner", "create-23");
+
+        assertEquals(7L, result.getUserId());
+        assertEquals(ClaimStatus.DRAFT, result.getClaimStatus());
+    }
+
+    @Test
+    void creationRetryWithoutUserIdMatchesTheOriginalClaim() {
+        Claim existing = claimFromRequest(24L, request(new BigDecimal("100.00"), "Treatment"));
+        existing.setEmailId(null);
+        existing.setIdempotencyKey("create-24");
+        when(userRepository.findByUsername("owner")).thenReturn(user(7L, "owner"));
+        when(claimRepository.findByIdempotencyKey("create-24")).thenReturn(Optional.of(existing));
+
+        ClaimDTO result = claimService.createClaimForClaimant(new ClaimCreateRequest(
+                null, new BigDecimal("100.00"), "MEDICAL", "Treatment", null), "owner", "create-24");
+
+        assertEquals(24L, result.getClaimId());
+        verify(claimRepository, never()).save(any(Claim.class));
+    }
+
+    @Test
     void returnsExistingClaimForMatchingCreationRetryWithoutWriting() {
         Claim existing = claimFromRequest(22L, request(new BigDecimal("100.00"), "Treatment"));
         existing.setIdempotencyKey("create-22");

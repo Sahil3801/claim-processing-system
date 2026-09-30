@@ -7,7 +7,7 @@ import { ErrorAlert } from '../components/Feedback';
 
 export function CreateClaimPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ userId: '', claimAmount: '', claimType: '', description: '', emailId: '' });
+  const [form, setForm] = useState({ claimAmount: '', claimType: '', description: '', emailId: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -15,7 +15,7 @@ export function CreateClaimPage() {
     event.preventDefault(); setLoading(true); setError('');
     try {
       const claim = await createClaim({
-        userId: Number(form.userId), claimAmount: Number(form.claimAmount), claimType: form.claimType.trim(),
+        claimAmount: Number(form.claimAmount), claimType: form.claimType.trim(),
         description: form.description.trim(), emailId: form.emailId.trim() || undefined,
       });
       navigate(`/claims/${claim.claimId}`, { state: { created: true } });
@@ -28,7 +28,6 @@ export function CreateClaimPage() {
       <header className="page-header"><div><p className="eyebrow">New claim</p><h1>Tell us what happened</h1><p>Create a draft now. You can review it before submission.</p></div></header>
       <form className="card form-grid" onSubmit={handleSubmit}>
         {error && <div className="form-span"><ErrorAlert message={error} /></div>}
-        <label>Claimant ID<span className="field-help">Your numeric user ID</span><input required min="1" type="number" value={form.userId} onChange={(e) => setForm({ ...form, userId: e.target.value })} /></label>
         <label>Claim type<input required maxLength={100} placeholder="e.g. Medical" value={form.claimType} onChange={(e) => setForm({ ...form, claimType: e.target.value })} /></label>
         <label>Claim amount<input required min="0.01" step="0.01" type="number" placeholder="0.00" value={form.claimAmount} onChange={(e) => setForm({ ...form, claimAmount: e.target.value })} /></label>
         <label>Email for updates<span className="field-help">Optional</span><input type="email" maxLength={255} value={form.emailId} onChange={(e) => setForm({ ...form, emailId: e.target.value })} /></label>

@@ -61,7 +61,23 @@ public class ClaimService {
     @Transactional
     public ClaimDTO createClaimForClaimant(
             ClaimCreateRequest request, String username, String idempotencyKey) {
-        return createClaim(request, username, normalizeIdempotencyKey(idempotencyKey));
+        return createClaim(withOwner(request, username), username, normalizeIdempotencyKey(idempotencyKey));
+    }
+
+    /**
+     * Claimants create claims for themselves, so a request without a user ID belongs to the
+     * caller. An explicit ID is kept and still has to match the caller in {@link #createClaim}.
+     */
+    private ClaimCreateRequest withOwner(ClaimCreateRequest request, String username) {
+        if (request.userId() != null) {
+            return request;
+        }
+        User owner = userRepository.findByUsername(username);
+        if (owner == null) {
+            throw new UnauthorizedClaimAccessException("User " + username + " cannot create claims");
+        }
+        return new ClaimCreateRequest(owner.getUserId(), request.claimAmount(), request.claimType(),
+                request.description(), request.emailId());
     }
 
     /**
