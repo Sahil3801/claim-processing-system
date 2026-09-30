@@ -50,7 +50,7 @@ describe('ClaimDetailPage conflicts', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Approve' }));
 
-    expect(await screen.findByText(/Another user updated this claim while you were working/)).toHaveTextContent('It is now Rejected');
+    expect(await screen.findByText(/Someone else updated this claim while you were working/)).toHaveTextContent('Its status is now Rejected');
     expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(getClaim).toHaveBeenCalledTimes(2);
@@ -63,7 +63,7 @@ describe('ClaimDetailPage conflicts', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Approve' }));
 
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Not allowed'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('You do not have access to this claim.'));
     expect(getClaim).toHaveBeenCalledTimes(1);
   });
 });

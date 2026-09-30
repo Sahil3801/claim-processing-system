@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { register } from '../api/auth';
-import { errorMessage } from '../api/client';
+import { errorCode, errorMessage } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { ErrorAlert } from '../components/Feedback';
 import { usePageTitle } from '../usePageTitle';
@@ -23,7 +23,11 @@ export function RegisterPage() {
     try {
       await register(form.username.trim(), form.email.trim(), form.password);
       navigate('/login', { replace: true, state: { registered: true } });
-    } catch (requestError) { setError(errorMessage(requestError)); }
+    } catch (requestError) {
+      setError(errorCode(requestError) === 'DATA_INTEGRITY_CONFLICT'
+        ? 'That username or email address is already registered. Sign in or use different details.'
+        : errorMessage(requestError));
+    }
     finally { setLoading(false); }
   }
 
@@ -32,7 +36,7 @@ export function RegisterPage() {
       <div className="auth-column">
         <div className="brand auth-brand"><span className="brand-mark" aria-hidden="true">CP</span><span className="brand-name">Claims Portal</span></div>
         <form className="auth-card" onSubmit={handleSubmit}>
-          <div className="auth-heading"><h1>Create a claimant account</h1><p>You can submit and track your own claims. Staff accounts are set up by an administrator.</p></div>
+          <div className="auth-heading"><h1>Create a claimant account</h1><p>Submit your own claims and track each decision. Staff accounts are set up by an administrator.</p></div>
           {error && <ErrorAlert message={error} />}
           <label className="field">Username<input required maxLength={100} autoComplete="username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /></label>
           <label className="field">Email address<input required type="email" maxLength={255} autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>

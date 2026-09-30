@@ -35,7 +35,7 @@ export function AppShell() {
             <span className="nav-group-label">My workspace</span>
             <NavLink className={navClass} to="/dashboard">Overview</NavLink>
             <NavLink className={navClass} to="/claims" end>My claims</NavLink>
-            <NavLink className={navClass} to="/claims/new">Create claim</NavLink>
+            <NavLink className={navClass} to="/claims/new">New claim</NavLink>
           </div>}
           {isStaff && <div className="nav-group">
             <span className="nav-group-label">Operations</span>

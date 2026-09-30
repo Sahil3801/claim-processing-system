@@ -11,7 +11,7 @@ export function ClaimTable({ claims, showClaimant = false, empty }: {
   empty?: { title: string; message: string; action?: ReactNode };
 }) {
   if (!claims.length) {
-    return <EmptyState title={empty?.title ?? 'No claims found'} message={empty?.message ?? 'No claims match the current filters.'} action={empty?.action} />;
+    return <EmptyState title={empty?.title ?? 'No claims found'} message={empty?.message ?? 'No claims match the filters.'} action={empty?.action} />;
   }
   return (
     <div className="table-wrap">

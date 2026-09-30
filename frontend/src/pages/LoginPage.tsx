@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { errorMessage } from '../api/client';
+import { errorMessage, errorStatus } from '../api/client';
 import { ErrorAlert, Notice } from '../components/Feedback';
 import { usePageTitle } from '../usePageTitle';
 
@@ -26,7 +26,7 @@ export function LoginPage() {
       const next = await login(username.trim(), password);
       navigate(next.role === 'CLAIMANT' ? '/dashboard' : '/officer', { replace: true });
     } catch (requestError) {
-      setError(errorMessage(requestError));
+      setError(errorStatus(requestError) === 401 ? 'Incorrect username or password.' : errorMessage(requestError));
     } finally { setLoading(false); }
   }
 
@@ -35,7 +35,7 @@ export function LoginPage() {
       <div className="auth-column">
         <div className="brand auth-brand"><span className="brand-mark" aria-hidden="true">CP</span><span className="brand-name">Claims Portal</span></div>
         <form className="auth-card" onSubmit={handleSubmit}>
-          <div className="auth-heading"><h1>Sign in</h1><p>Use the account you registered with, or the one your administrator created for you.</p></div>
+          <div className="auth-heading"><h1>Sign in</h1><p>Use your claimant account, or the staff account your administrator set up.</p></div>
           {registered && <Notice tone="success">Account created. Sign in to continue.</Notice>}
           {error && <ErrorAlert message={error} />}
           <label className="field">Username<input autoComplete="username" required value={username} onChange={(e) => setUsername(e.target.value)} /></label>
