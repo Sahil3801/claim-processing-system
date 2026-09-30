@@ -57,7 +57,8 @@ export interface ClaimFilters {
 }
 
 export interface CreateClaimRequest {
-  userId: number;
+  /** Omitted by the UI: the API assigns the claim to the signed-in claimant. */
+  userId?: number;
   claimAmount: number;
   claimType: string;
   description: string;

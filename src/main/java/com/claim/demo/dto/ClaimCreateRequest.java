@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
 public record ClaimCreateRequest(
-        @NotNull(message = "userId is required")
+        // Optional: claimants create claims for themselves, so the owner defaults to the caller.
         @Positive(message = "userId must be positive")
         Long userId,
 

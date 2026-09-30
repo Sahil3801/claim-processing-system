@@ -230,6 +230,17 @@ class ClaimsPostgresIntegrationTest {
         assertThat(retry.get("claimId").asLong()).isEqualTo(claimId);
         assertThat(jdbcTemplate.queryForObject("SELECT COUNT(*) FROM claims", Long.class)).isEqualTo(1);
 
+        // The UI omits userId: the claim belongs to the authenticated claimant.
+        mockMvc.perform(post("/api/claims")
+                        .with(user("bob").roles("CLAIMANT"))
+                        .header("Idempotency-Key", "postgres-create-no-user-id")
+                        .contentType(APPLICATION_JSON)
+                        .content("""
+                                {"claimAmount":40.00,"claimType":"AUTO","description":"Owner from login"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.userId").value(202));
+
         mockMvc.perform(post("/api/claims/{id}/submit", claimId)
                         .with(user("alice").roles("CLAIMANT"))
                         .header("Idempotency-Key", "postgres-submit-1"))
@@ -258,7 +269,7 @@ class ClaimsPostgresIntegrationTest {
         mockMvc.perform(get("/api/reports/summary")
                         .with(user("admin").roles("ADMIN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.totalClaims").value(1))
+                .andExpect(jsonPath("$.totalClaims").value(2))
                 .andExpect(jsonPath("$.approved.totalClaims").value(1))
                 .andExpect(jsonPath("$.approved.totalClaimAmount").value(125.50));
 
