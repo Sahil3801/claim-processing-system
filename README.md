@@ -1,5 +1,14 @@
 # Claims Processing System
 
+**Live demo: [sahil-claims.vercel.app](https://sahil-claims.vercel.app)**
+
+Register to try the claimant flow: create a claim, submit it, and follow its
+status. The demo runs on free tiers (Vercel, Render, Neon), so the first request
+after a quiet period can take up to a minute while the API wakes up. It runs
+without Kafka and Redis: status events are still written to the transactional
+outbox, and reads go straight to PostgreSQL. See the
+[free deployment guide](deploy/render/README.md) for the setup.
+
 A backend-focused claims workflow project built with Java 17, Spring Boot 3.3,
 PostgreSQL, Redis, and Kafka, with a React + TypeScript + Vite client.
 
