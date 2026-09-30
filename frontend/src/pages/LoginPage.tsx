@@ -3,7 +3,8 @@ import type { FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { errorMessage } from '../api/client';
-import { ErrorAlert } from '../components/Feedback';
+import { ErrorAlert, Notice } from '../components/Feedback';
+import { usePageTitle } from '../usePageTitle';
 
 export function LoginPage() {
   const { session, login } = useAuth();
@@ -14,6 +15,7 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const registered = (location.state as { registered?: boolean } | null)?.registered;
+  usePageTitle('Sign in');
 
   if (session) return <Navigate to="/" replace />;
 
@@ -30,22 +32,18 @@ export function LoginPage() {
 
   return (
     <main className="auth-page">
-      <section className="auth-panel auth-intro">
-        <div className="brand brand-light"><span className="brand-mark">CP</span><span>Claims Portal</span></div>
-        <div><p className="eyebrow">Claims, without the clutter</p><h1>Clear decisions.<br />Visible progress.</h1><p>Submit, review, and track insurance claims from one focused workspace.</p></div>
-        <p className="auth-footnote">Secure role-based claims processing</p>
-      </section>
-      <section className="auth-panel auth-form-panel">
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <div><p className="eyebrow">Welcome back</p><h2>Sign in to your account</h2><p className="muted">Enter your credentials to continue.</p></div>
-          {registered && <div className="alert alert-success">Registration complete. You can sign in now.</div>}
+      <div className="auth-column">
+        <div className="brand auth-brand"><span className="brand-mark" aria-hidden="true">CP</span><span className="brand-name">Claims Portal</span></div>
+        <form className="auth-card" onSubmit={handleSubmit}>
+          <div className="auth-heading"><h1>Sign in</h1><p>Use the account you registered with, or the one your administrator created for you.</p></div>
+          {registered && <Notice tone="success">Account created. Sign in to continue.</Notice>}
           {error && <ErrorAlert message={error} />}
-          <label>Username<input autoComplete="username" required value={username} onChange={(e) => setUsername(e.target.value)} /></label>
-          <label>Password<input autoComplete="current-password" required type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+          <label className="field">Username<input autoComplete="username" required value={username} onChange={(e) => setUsername(e.target.value)} /></label>
+          <label className="field">Password<input autoComplete="current-password" required type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
           <button className="button button-primary button-full" disabled={loading}>{loading ? 'Signing in…' : 'Sign in'}</button>
-          <p className="auth-switch">New claimant? <Link to="/register">Create an account</Link></p>
         </form>
-      </section>
+        <p className="auth-switch">New claimant? <Link to="/register">Create an account</Link></p>
+      </div>
     </main>
   );
 }

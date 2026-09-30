@@ -4,6 +4,7 @@ import { getMyClaims } from '../api/claims';
 import { errorMessage } from '../api/client';
 import { ClaimTable } from '../components/ClaimTable';
 import { ErrorAlert, LoadingState } from '../components/Feedback';
+import { PageHeader } from '../components/PageHeader';
 import type { Claim, PageResponse } from '../types';
 import { formatCurrency } from '../utils';
 
@@ -21,15 +22,18 @@ export function ClaimantDashboard() {
   const visibleAmount = data?.content.reduce((sum, claim) => sum + Number(claim.claimAmount), 0) ?? 0;
   return (
     <div className="page-stack">
-      <header className="page-header"><div><p className="eyebrow">Claimant workspace</p><h1>Your claims at a glance</h1><p>Track recent activity or start a new claim.</p></div><Link className="button button-primary" to="/claims/new">Create claim</Link></header>
+      <PageHeader title="Overview" description="Your recent claims and where each one stands." actions={<Link className="button button-primary" to="/claims/new">Create claim</Link>} />
       {error && <ErrorAlert message={error} onRetry={load} />}
       {!data && !error ? <LoadingState label="Loading your dashboard" /> : data && <>
-        <section className="stat-grid">
-          <article className="stat-card"><span>Total claims</span><strong>{data.totalElements}</strong><small>All submitted records</small></article>
-          <article className="stat-card"><span>Active in recent list</span><strong>{openClaims}</strong><small>Draft or being processed</small></article>
-          <article className="stat-card"><span>Recent claim value</span><strong>{formatCurrency(visibleAmount)}</strong><small>Across the claims shown below</small></article>
+        <section className="metric-strip" aria-label="Summary">
+          <div className="metric"><span className="metric-label">Total claims</span><strong className="metric-value">{data.totalElements}</strong><small className="metric-note">Everything you have created</small></div>
+          <div className="metric"><span className="metric-label">Open · last 5</span><strong className="metric-value">{openClaims}</strong><small className="metric-note">Draft or still being processed</small></div>
+          <div className="metric"><span className="metric-label">Value · last 5</span><strong className="metric-value">{formatCurrency(visibleAmount)}</strong><small className="metric-note">Total of the claims listed below</small></div>
         </section>
-        <section className="card"><div className="section-heading"><div><h2>Recent claims</h2><p>Your five most recently updated submissions.</p></div><Link to="/claims">View all</Link></div><ClaimTable claims={data.content} /></section>
+        <section className="panel">
+          <div className="panel-header"><div><h2>Recent claims</h2><p>Your five most recent claims.</p></div>{data.totalElements > 0 && <Link className="panel-link" to="/claims">View all claims</Link>}</div>
+          <ClaimTable claims={data.content} empty={{ title: 'No claims yet', message: 'Create your first claim to start tracking it here.', action: <Link className="button button-primary button-small" to="/claims/new">Create claim</Link> }} />
+        </section>
       </>}
     </div>
   );

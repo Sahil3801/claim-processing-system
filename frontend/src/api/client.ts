@@ -41,6 +41,14 @@ export function errorCode(error: unknown): string | undefined {
 
 export function errorMessage(error: unknown): string {
   if (!axios.isAxiosError<ApiErrorResponse>(error)) return 'Something went wrong. Please try again.';
+  // Transport and server failures carry no useful API message; describe them in plain language.
+  if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+    return 'The server is taking too long to respond. It may be starting up; please try again in a minute.';
+  }
+  if (!error.response) return 'Could not reach the claims service. Check your connection and try again.';
+  if (error.response.status >= 500) {
+    return 'The claims service is unavailable right now. Please try again shortly.';
+  }
   const body = error.response?.data;
   if (body?.violations && Object.keys(body.violations).length) {
     return Object.values(body.violations).join(' ');
