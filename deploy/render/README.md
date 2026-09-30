@@ -18,8 +18,8 @@ share, so a cold start can take a minute or more (step 5 avoids this).
 
 ## 1. Neon database
 
-1. Create a Neon project. Choose the AWS region closest to your Render region
-   (Render's default is Oregon, so `us-west-2`).
+1. Create a Neon project in AWS `us-east-2` (Ohio), next to the Render region set
+   in `render.yaml`. If you pick another Neon region, change `region` there too.
 2. Open **Connect**, turn **Connection pooling off** (Flyway and Hikari want a
    direct connection), and copy the connection string:
    `postgresql://USER:PASSWORD@HOST/DBNAME?sslmode=require&channel_binding=require`

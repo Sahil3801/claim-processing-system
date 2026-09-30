@@ -5,6 +5,8 @@ services:
     name: claims-api
     runtime: docker
     plan: free
+    # Keep the API next to the Neon database (AWS us-east-2) to avoid cross-region query latency.
+    region: ohio
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /actuator/health
