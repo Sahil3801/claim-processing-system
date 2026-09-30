@@ -35,7 +35,7 @@ export function ClaimsListPage({ pendingOnly = false }: { pendingOnly?: boolean 
     <div className="page-stack">
       <PageHeader
         title={pendingOnly ? 'Claims queue' : isClaimant ? 'My claims' : 'All claims'}
-        description={isClaimant ? 'Every claim you have created, newest first.' : 'Open a claim to review its details and move it to the next step.'}
+        description={isClaimant ? 'All the claims you have created, newest first.' : 'Open a claim to review it and move it to the next step.'}
         actions={isClaimant ? <Link className="button button-primary" to="/claims/new">Create claim</Link> : undefined}
       />
       {error && <ErrorAlert message={error} onRetry={load} />}
@@ -47,7 +47,7 @@ export function ClaimsListPage({ pendingOnly = false }: { pendingOnly?: boolean 
           <button className="button button-ghost button-small toolbar-reset" type="button" disabled={!filtersChanged} onClick={() => { setStatus(pendingOnly ? 'SUBMITTED' : ''); setClaimType(''); setUserId(''); setPage(0); }}>Reset filters</button>
         </div>}
         <div className="panel-subheader" aria-live="polite">
-          {data && !loading ? <span><strong>{data.totalElements}</strong> claim{data.totalElements === 1 ? '' : 's'}{!isClaimant && filtersChanged ? ' match these filters' : ''}</span> : <span>&nbsp;</span>}
+          {data && !loading ? <span><strong>{data.totalElements}</strong> claim{data.totalElements === 1 ? '' : 's'}{!isClaimant && filtersChanged ? ' match the filters' : ''}</span> : <span>&nbsp;</span>}
         </div>
         {loading ? <LoadingState label="Loading claims" /> : data && <>
           <ClaimTable
@@ -55,7 +55,7 @@ export function ClaimsListPage({ pendingOnly = false }: { pendingOnly?: boolean 
             showClaimant={!isClaimant}
             empty={isClaimant
               ? { title: 'No claims yet', message: 'Claims you create will appear here.', action: <Link className="button button-primary button-small" to="/claims/new">Create claim</Link> }
-              : { title: 'No claims match', message: filtersChanged ? 'Try a different status or clear the filters.' : 'There is nothing waiting in this queue.' }}
+              : { title: filtersChanged ? 'No matching claims' : 'Queue is clear', message: filtersChanged ? 'Try a different status, or reset the filters.' : 'No submitted claims are waiting for review.' }}
           />
           <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} pageSize={data.size} totalElements={data.totalElements} />
         </>}

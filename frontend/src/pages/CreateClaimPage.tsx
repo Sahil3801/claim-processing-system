@@ -30,7 +30,7 @@ export function CreateClaimPage() {
 
   return (
     <div className="page-stack narrow-page">
-      <PageHeader crumbs={[{ label: 'My claims', to: '/claims' }, { label: 'New claim' }]} title="New claim" description="This saves a draft. You can check it before submitting it for review." />
+      <PageHeader crumbs={[{ label: 'My claims', to: '/claims' }, { label: 'New claim' }]} title="New claim" description="Your claim is saved as a draft first, so you can check it before you submit it." />
       <form className="panel form-panel" onSubmit={handleSubmit} noValidate={false}>
         {error && <ErrorAlert message={error} />}
         <div className="form-section"><fieldset className="form-fieldset">
@@ -39,7 +39,7 @@ export function CreateClaimPage() {
             <div className="field">
               <label className="field-label" htmlFor="claim-type">Claim type<span className="required-mark" aria-hidden="true">*</span></label>
               <input id="claim-type" required maxLength={100} list="claim-type-suggestions" autoComplete="off" aria-describedby="claim-type-help" value={form.claimType} onChange={(e) => setForm({ ...form, claimType: e.target.value })} />
-              <span className="field-help" id="claim-type-help">For example Medical, Auto or Home.</span>
+              <span className="field-help" id="claim-type-help">Such as Medical, Auto, or Home.</span>
             </div>
             <datalist id="claim-type-suggestions">{typeSuggestions.map((type) => <option key={type} value={type} />)}</datalist>
             <div className="field">
@@ -50,7 +50,7 @@ export function CreateClaimPage() {
           </div>
           <div className="field">
             <label className="field-label" htmlFor="claim-description">Description<span className="required-mark" aria-hidden="true">*</span></label>
-            <textarea id="claim-description" required maxLength={DESCRIPTION_MAX} rows={7} placeholder="What happened, when, and what it cost. Include any reference numbers." aria-describedby="claim-description-count" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+            <textarea id="claim-description" required maxLength={DESCRIPTION_MAX} rows={7} placeholder="Describe what happened, when it happened, and what it cost. Include any reference numbers." aria-describedby="claim-description-count" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             <span className={`field-count${form.description.length > DESCRIPTION_MAX - 100 ? ' field-count-near' : ''}`} id="claim-description-count">{form.description.length}/{DESCRIPTION_MAX} characters</span>
           </div>
         </fieldset></div>
@@ -59,7 +59,7 @@ export function CreateClaimPage() {
           <div className="field field-half">
             <label className="field-label" htmlFor="claim-email">Email for updates<span className="field-optional">Optional</span></label>
             <input id="claim-email" type="email" maxLength={255} autoComplete="email" aria-describedby="claim-email-help" value={form.emailId} onChange={(e) => setForm({ ...form, emailId: e.target.value })} />
-            <span className="field-help" id="claim-email-help">Leave blank to use your account email.</span>
+            <span className="field-help" id="claim-email-help">Leave blank to use your account email address.</span>
           </div>
         </fieldset></div>
         <div className="form-footer">

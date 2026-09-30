@@ -131,7 +131,7 @@ a:hover { text-decoration: underline; text-underline-offset: 2px; }
 .account-text strong, .account-text small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .account-text strong { font-size: var(--text-sm); font-weight: 600; }
 .account-text small { color: var(--text-muted); font-size: var(--text-xs); }
-.account-signout { grid-column: 1 / -1; justify-self: start; margin-top: var(--space-1); }
+.account-signout { grid-column: 2; justify-self: start; margin-top: var(--space-1); margin-left: calc(var(--space-3) * -1); }
 .main-content { min-width: 0; padding: var(--space-6) var(--space-8) var(--space-10); }
 .main-content:focus { outline: none; }
 

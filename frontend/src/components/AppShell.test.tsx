@@ -29,8 +29,8 @@ describe('AppShell navigation', () => {
     expect(activeLinks()).toEqual(['Officer dashboard']);
   });
 
-  it('highlights only create claim, not my claims, on the new-claim page', () => {
+  it('highlights only new claim, not my claims, on the new-claim page', () => {
     renderAt('/claims/new', 'CLAIMANT');
-    expect(activeLinks()).toEqual(['Create claim']);
+    expect(activeLinks()).toEqual(['New claim']);
   });
 });
