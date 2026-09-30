@@ -11,7 +11,8 @@ production outcomes. Setup and endpoint details are in the [README](../README.md
 with a React/TypeScript client. Claimants create and submit claims, officers
 review and decide them, and admins see live aggregate reports. I implemented
 role/ownership checks, database-backed idempotency, transactional status history,
-Redis cache-aside reads, and post-commit Kafka notifications. I added tests,
+optimistic concurrency control, Redis cache-aside reads, and Kafka notifications
+through a transactional outbox. I added tests,
 Docker and CI configuration, manual AWS deployment preparation, and repeatable
 local benchmarks on a 100K-claim synthetic dataset."
 
@@ -26,7 +27,7 @@ availability SLA, or cloud cost savings.
 
 Claims need transactional state, referential integrity, constrained statuses,
 precise decimal amounts, and aggregates. PostgreSQL provides those primitives.
-Flyway V1-V6 versions the schema; Hibernate only validates it. H2 supports fast
+Flyway V1-V8 versions the schema; Hibernate only validates it. H2 supports fast
 tests, but Testcontainers PostgreSQL checks actual database migrations, numeric/
 date behavior, unique keys, and constraints. H2 compatibility alone is not proof
 of PostgreSQL correctness. Skipped Docker tests must be reported as skipped.
@@ -43,13 +44,17 @@ all recorded history events.
 
 ### What happens when two officers update the same claim?
 
-The current general transition path does not have an optimistic version column
-or an explicit row lock. Legal-edge validation alone cannot rule out concurrent
-lost decisions. Creation/submission have targeted pessimistic locks for retry
-handling; they should not be presented as complete concurrency control. A next
-hardening decision would compare optimistic version conflicts versus targeted
-write locks, add race tests, and map conflicts explicitly. That is not completed
-functionality in this documentation phase.
+Claims have a JPA `@Version` column. Both officers read version N; the first
+commit bumps it to N+1, and the second one's `UPDATE ... WHERE version = N` matches
+no row, so its transaction (claim, history, and outbox event) rolls back and the
+API returns 409 `CONCURRENT_CLAIM_UPDATE`. A PostgreSQL integration test reproduces
+this deterministically, and it fails if `@Version` is removed.
+
+Why optimistic rather than `SELECT ... FOR UPDATE`? Conflicts are rare and requests
+are short, so detecting them is cheaper than blocking every transition. Creation
+and submission keep targeted pessimistic locks because they must serialize
+idempotent retries. Limitation: the version is not sent to clients, so a decision
+made from a stale screen is only caught if another write is in flight.
 
 ### How does idempotency work?
 
@@ -77,8 +82,7 @@ checked even when a detail DTO came from Redis.
 JWT uses an environment-provided HS256 secret and passwords use BCrypt. Frontend
 localStorage is convenient but exposed to XSS; no refresh-token rotation, MFA,
 or server-side token revocation list exists. Authentication design would need
-review before a public deployment. There is no Google-login implementation to
-claim just because legacy OAuth configuration placeholders remain in resources.
+review before a public deployment. There is no Google login.
 
 ### Why cache-aside, and how consistent is it?
 
@@ -95,16 +99,20 @@ solely to make a benchmark look better.
 
 ### Is the Kafka flow exactly-once?
 
-No. Events are keyed by claim ID and sent only after database commit. The producer
-uses idempotence/retries; the consumer group uses record acknowledgment, retries,
-a DLT, and a unique processed-event marker. Already committed event IDs are
-skipped, and notification failure does not roll back the original claim.
+No, it is at-least-once with idempotent consumption. Each transition inserts its
+event into an outbox table in the same transaction, so the event exists if and
+only if the claim change committed. A relay locks unpublished rows with
+`FOR UPDATE SKIP LOCKED` (safe with several app instances), sends them keyed by
+claim ID, waits for the broker acknowledgment, then marks them published. If Kafka
+is down, rows wait and are retried; the relay stops at the first failure so a
+claim's events stay in order. A crash after sending but before marking causes a
+re-send, which the consumer's unique processed-event marker skips.
 
-Two important windows remain: a crash after claim commit but before send can
-lose an event because there is no outbox; SMTP can succeed before the marker
-commits, allowing a duplicate email after a crash. Kafka producer idempotence
-does not solve either cross-system problem. Single-node Kafka is also a deliberate
-availability tradeoff. DLT replay and marker-retention cleanup are not automated.
+Remaining window: SMTP can succeed before the consumer marker commits, allowing
+a duplicate email after a crash. Single-node Kafka is a deliberate availability
+tradeoff, and DLT replay is manual. Polling adds up to about a second of latency;
+change data capture (for example Debezium) would remove polling but adds
+infrastructure.
 
 ### How does reporting avoid loading all claims into Java?
 

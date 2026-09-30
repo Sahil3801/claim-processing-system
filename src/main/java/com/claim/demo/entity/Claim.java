@@ -13,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 import java.math.BigDecimal;
 import java.util.Date;
@@ -58,6 +59,10 @@ public class Claim {
     @Column(name = "submission_idempotency_key", length = 128, unique = true)
     private String submissionIdempotencyKey;
 
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     // Getters and setters omitted for brevity
     
     // Getters and setters
@@ -70,6 +75,10 @@ public class Claim {
         this.emailId = emailId;
     }
  
+    public Long getVersion() {
+        return version;
+    }
+
     public Long getClaimId() {
         return claimId;
     }

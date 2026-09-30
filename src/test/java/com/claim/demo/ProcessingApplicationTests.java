@@ -29,7 +29,7 @@ class ProcessingApplicationTests {
 
 	@Test
 	void contextLoads() {
-		assertEquals("6", flyway.info().current().getVersion().getVersion());
+		assertEquals("8", flyway.info().current().getVersion().getVersion());
 	}
 
 	@Test

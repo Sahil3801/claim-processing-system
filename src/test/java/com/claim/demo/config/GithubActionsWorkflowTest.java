@@ -30,6 +30,8 @@ class GithubActionsWorkflowTest {
                 () -> assertTrue(workflow.contains("  pull_request:")),
                 () -> assertTrue(workflow.contains("run: chmod +x mvnw")),
                 () -> assertTrue(workflow.contains("./mvnw -B -ntp verify")),
+                () -> assertTrue(workflow.contains(
+                        "TEST-com.claim.demo.integration.ClaimsPostgresIntegrationTest.xml")),
                 () -> assertTrue(workflow.contains("run: npm ci")),
                 () -> assertTrue(workflow.contains("run: npm test")),
                 () -> assertTrue(workflow.contains("run: npm run build")),

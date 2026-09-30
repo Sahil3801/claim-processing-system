@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -93,6 +94,13 @@ public class ApiExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleIdempotencyConflict(
             IdempotencyKeyConflictException exception, HttpServletRequest request) {
         return response(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSE", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiErrorResponse> handleConcurrentUpdate(
+            OptimisticLockingFailureException exception, HttpServletRequest request) {
+        return response(HttpStatus.CONFLICT, "CONCURRENT_CLAIM_UPDATE",
+                "Claim was changed by another request; reload it and retry", request);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

@@ -36,7 +36,7 @@ public class ClaimService {
     private final ClaimRepository claimRepository;
     private final ClaimStatusHistoryRepository claimStatusHistoryRepository;
     private final UserRepository userRepository;
-    private final ClaimStatusEventPublisher claimStatusEventPublisher;
+    private final ClaimStatusOutbox claimStatusOutbox;
     private final ClaimCacheService claimCacheService;
 
 	private static final Logger logger = LogManager.getLogger(ClaimService.class);
@@ -44,12 +44,12 @@ public class ClaimService {
     public ClaimService(ClaimRepository claimRepository,
                         ClaimStatusHistoryRepository claimStatusHistoryRepository,
                         UserRepository userRepository,
-                        ClaimStatusEventPublisher claimStatusEventPublisher,
+                        ClaimStatusOutbox claimStatusOutbox,
                         ClaimCacheService claimCacheService) {
         this.claimRepository = claimRepository;
         this.claimStatusHistoryRepository = claimStatusHistoryRepository;
         this.userRepository = userRepository;
-        this.claimStatusEventPublisher = claimStatusEventPublisher;
+        this.claimStatusOutbox = claimStatusOutbox;
         this.claimCacheService = claimCacheService;
     }
 
@@ -201,7 +201,7 @@ public class ClaimService {
                 reason,
                 occurredAt));
         claimCacheService.evictClaimAfterCommit(claimId);
-        claimStatusEventPublisher.publishAfterCommit(ClaimStatusEvent.create(
+        claimStatusOutbox.enqueue(ClaimStatusEvent.create(
                 claimId,
                 previousStatus,
                 newStatus,
