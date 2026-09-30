@@ -157,6 +157,10 @@ to review as `SYSTEM_BATCH`; review is not exclusively a manual action. Initial
 draft creation does not create a transition-history entry. Settlement records
 status only: there is no payment processor or transfer of funds.
 
+If an officer's action loses a race (409 `CONCURRENT_CLAIM_UPDATE`) or the claim
+already moved on (409 `INVALID_CLAIM_TRANSITION`), the claim page reloads the claim
+and tells the officer its new status instead of leaving stale action buttons.
+
 The UI's status timeline is inferred from the current status plus creation and
 latest-update timestamps. The stored history has no REST retrieval endpoint;
 the UI does not display an audited timestamp for every intermediate step.
@@ -330,7 +334,7 @@ MockMvc/security tests, H2 repository tests, and Testcontainers PostgreSQL tests
 cover transitions, validation, ownership, idempotency, reporting, migrations,
 constraints, cache fallback/after-commit eviction, optimistic-lock conflicts, the
 outbox relay (including broker failure and retry), and Kafka consumer logic. Frontend Vitest/Testing Library tests cover authentication, route guards,
-and API idempotency behavior.
+API idempotency behavior, and reloading a claim after a concurrent-update 409.
 
 Testcontainers is configured with `disabledWithoutDocker=true`: a green build
 without Docker can skip all seven PostgreSQL integration tests. CI fails the build
