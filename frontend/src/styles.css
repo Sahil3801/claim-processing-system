@@ -378,7 +378,7 @@ input:disabled, select:disabled, textarea:disabled { color: var(--text-muted); b
 @media (max-width: 900px) {
   .app-shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto 1fr; }
   .sidebar { position: sticky; z-index: 20; display: grid; grid-template-columns: auto 1fr; grid-template-areas: "brand account" "nav nav"; align-items: center; gap: var(--space-2) var(--space-3); height: auto; padding: var(--space-2) var(--space-4) 0; border-right: 0; border-bottom: 1px solid var(--border); }
-  .brand { grid-area: brand; padding: var(--space-1) 0; }
+  .sidebar .brand { grid-area: brand; padding: var(--space-1) 0; }
   .sidebar-nav { grid-area: nav; display: flex; gap: var(--space-1); margin: 0 calc(var(--space-4) * -1); padding: 0 var(--space-4); overflow-x: auto; scrollbar-width: none; }
   .sidebar-nav::-webkit-scrollbar { display: none; }
   .nav-group { display: contents; }
