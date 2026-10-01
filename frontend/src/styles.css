@@ -207,6 +207,15 @@ a:hover { text-decoration: underline; text-underline-offset: 2px; }
 .date-cell small { color: var(--text-muted); font-size: var(--text-xs); }
 .row-action { width: 1%; text-align: right; }
 .row-action a { font-size: var(--text-sm); font-weight: 500; }
+.claim-cards { display: none; margin: 0; padding: 0; list-style: none; }
+.claim-card { display: grid; gap: var(--space-1); padding: var(--space-3) var(--space-4); color: var(--text); border-bottom: 1px solid var(--border-subtle); }
+.claim-cards li:last-child .claim-card { border-bottom: 0; }
+.claim-card:hover { background: var(--gray-25); text-decoration: none; }
+.claim-card:active { background: var(--gray-50); }
+.claim-card-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-width: 0; }
+.claim-card-main { color: var(--text); }
+.claim-card-main .num-value { font-weight: 600; }
+.claim-card-meta { color: var(--text-muted); font-size: var(--text-xs); font-variant-numeric: tabular-nums; }
 .table-empty { padding: var(--space-8) var(--space-4) !important; color: var(--text-muted); text-align: center; white-space: normal !important; }
 
 /* Status */
@@ -354,8 +363,11 @@ input:disabled, select:disabled, textarea:disabled { color: var(--text-muted); b
 
 /* Tablet: stack the claim sidebar and report tables */
 @media (max-width: 1100px) {
+  /* One column: flatten the two stacks so the decision sits right under the claim header. */
   .detail-grid { grid-template-columns: minmax(0, 1fr); }
-  .detail-side { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+  .detail-main, .detail-side { display: contents; }
+  .decision-panel { order: -1; }
+  .decision-panel .action-bar .button { flex: 0 1 12rem; }
   .report-grid { grid-template-columns: minmax(0, 1fr); }
   .metric-strip-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .metric-strip-four .metric:nth-child(3) { border-left: 0; }
@@ -382,6 +394,16 @@ input:disabled, select:disabled, textarea:disabled { color: var(--text-muted); b
 }
 
 @media (max-width: 640px) {
+  /* 16px text stops iOS Safari from zooming the page when a field is focused. */
+  input, select, textarea { font-size: var(--text-md); }
+  .decision-panel .action-bar .button { flex: 1 1 auto; }
+  .table-wrap-claims { display: none; }
+  .claim-cards { display: block; }
+  .hide-sm { display: none; }
+  .data-table { min-width: 0; }
+  .metric-value { font-size: var(--text-lg); }
+  .nav-link { padding-right: var(--space-2); padding-left: var(--space-2); font-size: var(--text-sm); }
+  .nav-link.active::before { right: var(--space-2); left: var(--space-2); }
   h1 { font-size: var(--text-xl); }
   .account-text, .account-avatar { display: none; }
   .page-header-row { flex-direction: column; align-items: stretch; }
@@ -393,15 +415,15 @@ input:disabled, select:disabled, textarea:disabled { color: var(--text-muted); b
   .toolbar { padding: var(--space-3) var(--space-4); }
   .toolbar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); }
   .toolbar-field, .toolbar-field-narrow { min-width: 0; max-width: none; }
-  .toolbar-field:first-child { grid-column: 1 / -1; }
+  .toolbar .toolbar-field:first-child { grid-column: 1 / -1; }
   .toolbar-reset { grid-column: 1 / -1; justify-self: end; margin-left: 0; }
   .panel-header, .panel-subheader { padding-right: var(--space-4); padding-left: var(--space-4); }
   .panel-padded { padding: var(--space-4); }
   .data-table th:first-child, .data-table td:first-child { padding-left: var(--space-4); }
   .data-table th:last-child, .data-table td:last-child { padding-right: var(--space-4); }
-  .date-range { width: 100%; }
-  .date-range .toolbar-field { flex: 1 1 8rem; }
-  .detail-side { grid-template-columns: minmax(0, 1fr); }
+  /* Native date inputs will not shrink below their text, so stack them on phones. */
+  .date-range { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; }
+  .date-range .toolbar-field { min-width: 0; }
   .detail-list { gap: var(--space-3) var(--space-4); }
   .detail-wide { grid-column: 1 / -1; }
   .form-panel { padding: var(--space-4); }
