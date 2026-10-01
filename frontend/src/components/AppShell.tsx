@@ -19,8 +19,11 @@ export function AppShell() {
   // On narrow screens the nav is a horizontal strip; keep the current page's tab visible.
   useEffect(() => {
     navRef.current?.querySelector<HTMLElement>('.nav-link.active')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
-    // After navigation (including signing in), start keyboard and screen-reader users at the new page's content.
-    mainRef.current?.focus();
+    // After navigation (including signing in), start keyboard and screen-reader users at the new page's
+    // content. Scroll to the top ourselves: letting focus scroll would tuck the title under the sticky
+    // mobile header.
+    mainRef.current?.focus({ preventScroll: true });
+    window.scrollTo?.(0, 0);
   }, [pathname]);
   if (!session) return null;
   const isStaff = session.role === 'CLAIMS_OFFICER' || session.role === 'ADMIN';

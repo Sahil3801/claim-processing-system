@@ -14,7 +14,8 @@ export function ClaimTable({ claims, showClaimant = false, empty }: {
     return <EmptyState title={empty?.title ?? 'No claims found'} message={empty?.message ?? 'No claims match the filters.'} action={empty?.action} />;
   }
   return (
-    <div className="table-wrap">
+    <>
+    <div className="table-wrap table-wrap-claims">
       <table className="data-table data-table-claims">
         <thead>
           <tr>
@@ -42,5 +43,26 @@ export function ClaimTable({ claims, showClaimant = false, empty }: {
         </tbody>
       </table>
     </div>
+    {/* Phones: one card per claim instead of a table that scrolls sideways and hides the status. */}
+    <ul className="claim-cards" aria-label="Claims">
+      {claims.map((claim) => (
+        <li key={claim.claimId}>
+          <Link className="claim-card" to={`/claims/${claim.claimId}`}>
+            <span className="claim-card-row">
+              <span className="claim-id">#{claim.claimId}</span>
+              <StatusBadge status={claim.claimStatus} />
+            </span>
+            <span className="claim-card-row claim-card-main">
+              <span className="truncate">{formatClaimType(claim.claimType)}</span>
+              <span className="num-value">{formatCurrency(claim.claimAmount)}</span>
+            </span>
+            <span className="claim-card-meta">
+              Created {formatDay(claim.claimDate)}, {formatTime(claim.claimDate)}{showClaimant ? ` · User ${claim.userId}` : ''}
+            </span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+    </>
   );
 }
