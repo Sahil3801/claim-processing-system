@@ -4,7 +4,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { register } from '../api/auth';
 import { errorCode, errorMessage } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
-import { ErrorAlert } from '../components/Feedback';
+import { ErrorAlert, Notice, useSlow, WAKE_MESSAGE } from '../components/Feedback';
 import { usePageTitle } from '../usePageTitle';
 
 export function RegisterPage() {
@@ -13,6 +13,7 @@ export function RegisterPage() {
   const [form, setForm] = useState({ username: '', email: '', password: '', confirmPassword: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const waking = useSlow(loading);
   usePageTitle('Create account');
   if (session) return <Navigate to="/" replace />;
 
@@ -38,11 +39,12 @@ export function RegisterPage() {
         <form className="auth-card" onSubmit={handleSubmit}>
           <div className="auth-heading"><h1>Create a claimant account</h1><p>Submit your own claims and track each decision. Staff accounts are set up by an administrator.</p></div>
           {error && <ErrorAlert message={error} />}
+          {waking && <Notice tone="info">{WAKE_MESSAGE}</Notice>}
           <label className="field">Username<input required maxLength={100} autoComplete="username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} /></label>
           <label className="field">Email address<input required type="email" maxLength={255} autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></label>
           <div className="field"><label className="field-label" htmlFor="register-password">Password</label><input id="register-password" required type="password" minLength={8} maxLength={72} autoComplete="new-password" aria-describedby="password-help" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /><span className="field-help" id="password-help">At least 8 characters.</span></div>
           <label className="field">Confirm password<input required type="password" autoComplete="new-password" value={form.confirmPassword} onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })} /></label>
-          <button className="button button-primary button-full" disabled={loading}>{loading ? 'Creating account…' : 'Create account'}</button>
+          <button className="button button-primary button-full" disabled={loading}>{waking ? 'Waking up the server…' : loading ? 'Creating account…' : 'Create account'}</button>
         </form>
         <p className="auth-switch">Already registered? <Link to="/login">Sign in</Link></p>
       </div>
