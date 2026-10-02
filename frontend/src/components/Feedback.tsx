@@ -2,19 +2,29 @@ import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 
 /** Free hosting can take up to a minute to wake the API; say so instead of spinning silently. */
-const SLOW_AFTER_MS = 6000;
+export const SLOW_AFTER_MS = 4000;
 
-export function LoadingState({ label = 'Loading' }: { label?: string }) {
+export const WAKE_MESSAGE = 'This demo runs on free hosting, so the server sleeps when no one is using it. '
+  + 'Waking it up can take about a minute. Please keep this page open.';
+
+/** True once `active` has stayed true for longer than SLOW_AFTER_MS. */
+export function useSlow(active: boolean): boolean {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
+    if (!active) { setSlow(false); return; }
     const timer = window.setTimeout(() => setSlow(true), SLOW_AFTER_MS);
     return () => window.clearTimeout(timer);
-  }, []);
+  }, [active]);
+  return slow;
+}
+
+export function LoadingState({ label = 'Loading' }: { label?: string }) {
+  const slow = useSlow(true);
   return (
     <div className="feedback" role="status">
       <span className="spinner" aria-hidden="true" />
       <span>{label}…</span>
-      {slow && <small className="feedback-hint">This is taking longer than usual. The server may be starting up, which can take up to a minute.</small>}
+      {slow && <small className="feedback-hint">{WAKE_MESSAGE}</small>}
     </div>
   );
 }

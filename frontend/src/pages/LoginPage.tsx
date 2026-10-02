@@ -3,7 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { errorMessage, errorStatus } from '../api/client';
-import { ErrorAlert, Notice } from '../components/Feedback';
+import { ErrorAlert, Notice, useSlow, WAKE_MESSAGE } from '../components/Feedback';
 import { usePageTitle } from '../usePageTitle';
 
 export function LoginPage() {
@@ -14,6 +14,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const waking = useSlow(loading);
   const registered = (location.state as { registered?: boolean } | null)?.registered;
   usePageTitle('Sign in');
 
@@ -38,9 +39,10 @@ export function LoginPage() {
           <div className="auth-heading"><h1>Sign in</h1><p>Use your claimant account, or the staff account your administrator set up.</p></div>
           {registered && <Notice tone="success">Account created. Sign in to continue.</Notice>}
           {error && <ErrorAlert message={error} />}
+          {waking && <Notice tone="info">{WAKE_MESSAGE}</Notice>}
           <label className="field">Username<input autoComplete="username" required value={username} onChange={(e) => setUsername(e.target.value)} /></label>
           <label className="field">Password<input autoComplete="current-password" required type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></label>
-          <button className="button button-primary button-full" disabled={loading}>{loading ? 'Signing in…' : 'Sign in'}</button>
+          <button className="button button-primary button-full" disabled={loading}>{waking ? 'Waking up the server…' : loading ? 'Signing in…' : 'Sign in'}</button>
         </form>
         <p className="auth-switch">New claimant? <Link to="/register">Create an account</Link></p>
       </div>

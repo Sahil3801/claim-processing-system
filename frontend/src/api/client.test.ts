@@ -30,7 +30,7 @@ describe('errorMessage', () => {
   });
 
   it('replaces raw transport errors with plain language', () => {
-    expect(errorMessage(new AxiosError('timeout of 15000ms exceeded', 'ECONNABORTED'))).toMatch(/taking too long/);
+    expect(errorMessage(new AxiosError('timeout of 15000ms exceeded', 'ECONNABORTED'))).toMatch(/did not respond in time.*free hosting/);
     expect(errorMessage(new AxiosError('Network Error', 'ERR_NETWORK'))).toMatch(/Could not reach/);
     expect(errorMessage(withResponse(502, ''))).toMatch(/unavailable right now/);
   });

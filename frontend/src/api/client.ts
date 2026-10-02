@@ -7,7 +7,8 @@ export const AUTH_EXPIRED_EVENT = 'claims:auth-expired';
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: { 'Content-Type': 'application/json' },
-  timeout: 15_000,
+  // The demo API runs on free hosting that sleeps when idle; waking it can take about a minute.
+  timeout: 90_000,
 });
 
 api.interceptors.request.use((config) => {
@@ -80,7 +81,7 @@ export function errorMessage(error: unknown): string {
   if (!axios.isAxiosError<ApiErrorResponse>(error)) return 'Something went wrong. Please try again.';
   // Transport and server failures carry no useful API message; describe them in plain language.
   if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-    return 'The server is taking too long to respond. It may be starting up, so please try again in a minute.';
+    return 'The server did not respond in time. This demo runs on free hosting and may still be waking up, so please try again.';
   }
   if (!error.response) return 'Could not reach the claims service. Check your connection and try again.';
   if (error.response.status >= 500) {
