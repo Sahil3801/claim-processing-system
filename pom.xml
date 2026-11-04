@@ -93,6 +93,11 @@
             <artifactId>postgresql</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>kafka</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- H2 remains test-only; production and deployed environments use PostgreSQL. -->
         <dependency>
             <groupId>com.h2database</groupId>

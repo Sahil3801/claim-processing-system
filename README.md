@@ -198,7 +198,8 @@ Protected calls use `Authorization: Bearer <token>`.
 | `GET /api/reports/status` | Admin only | Counts, sums, averages by status |
 | `GET /api/reports/claim-types` | Admin only | Counts, sums, averages by claim type |
 | `GET /api/reports/daily?from=YYYY-MM-DD&to=YYYY-MM-DD` | Admin only | Inclusive date range; groups by creation date |
-| `GET /actuator/health` and health subpaths | Public | Status/probe information without health details |
+| `GET /actuator/health` and health subpaths | Public | Overall status only; admins also see PostgreSQL, Redis, and Kafka components. `/actuator/health/readiness` checks PostgreSQL only |
+| `GET /actuator/info`, `GET /actuator/metrics` | Admin only | Application info and Micrometer metrics; no other actuator endpoints are exposed |
 
 Review/approve/settle accept an optional `{"reason":"..."}` body (maximum 500
 characters). There is no general public claim update/delete/status-history

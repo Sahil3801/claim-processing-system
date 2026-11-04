@@ -28,7 +28,7 @@ while (( SECONDS < deadline )); do
 
   if [[ "$all_healthy" == "true" ]]; then
     "${compose[@]}" exec -T app sh -c \
-      "wget -q -O - http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"
+      "wget -q -O - http://localhost:8080/actuator/health/readiness | grep -q '\"status\":\"UP\"'"
     "${compose[@]}" ps
     echo "All production containers are healthy."
     exit 0
