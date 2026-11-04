@@ -52,10 +52,14 @@ class AwsDeploymentConfigurationTest {
                 "src", "main", "resources", "application.properties"));
 
         assertThat(baseProperties).contains("${DB_JDBC_URL:");
+        // A Redis or Kafka outage shows in the overall health but must not make the API unready.
+        assertThat(Files.readString(Path.of("src", "main", "resources", "actuator.properties")))
+                .contains("management.endpoint.health.group.readiness.include=readinessState,db");
         assertThat(productionProperties)
                 .contains("spring.datasource.hikari.maximum-pool-size=${DB_POOL_MAX_SIZE:8}")
-                .contains("management.health.redis.enabled=${REDIS_HEALTH_ENABLED:false}")
                 .contains("server.shutdown=graceful");
+        assertThat(Files.readString(AWS_ROOT.resolve("caddy").resolve("Caddyfile")))
+                .contains("health_uri /actuator/health/readiness");
 
         for (String scriptName : new String[]{"bootstrap-ec2.sh", "deploy.sh", "health-check.sh"}) {
             String script = Files.readString(AWS_ROOT.resolve("scripts").resolve(scriptName));

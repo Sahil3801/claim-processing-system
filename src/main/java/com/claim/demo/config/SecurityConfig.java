@@ -44,6 +44,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers(HttpMethod.POST, "/api/auth/register", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/claims").hasRole("CLAIMANT")
                         .requestMatchers(HttpMethod.POST, "/api/claims/*/submit").hasRole("CLAIMANT")
                         .requestMatchers(HttpMethod.GET, "/api/claims/my").hasRole("CLAIMANT")
